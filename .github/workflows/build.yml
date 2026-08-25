@@ -15,13 +15,13 @@ jobs:
       - name: Checkout this repo (vipmod.patch lives here)
         uses: actions/checkout@v4
 
-      - name: Clone latest official Telegram source + submodules
+      - name: Clone latest official Telegram source + all submodules
         run: |
-          git clone --depth 1 https://github.com/DrKLO/Telegram.git telegram
+          git clone https://github.com/DrKLO/Telegram.git telegram
           cd telegram
           git log -1 --format="SOURCE: %h %s"
-          # native libs are prebuilt in the repo; only these two submodules are required
-          git submodule update --init --depth 1 TMessagesProj/lib/jlatexmath TMessagesProj/jni/tlottie
+          # native code compiles from these submodules — ALL of them are required
+          git submodule update --init --depth 1
 
       - name: Apply VipMod patch
         run: |
@@ -45,15 +45,13 @@ jobs:
           sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
           yes | sdkmanager --licenses > /dev/null || true
 
-      - name: Build release APK (native prebuilt, skip CMake)
+      - name: Build release APK (full native compile)
         working-directory: telegram
         run: |
           echo "sdk.dir=$ANDROID_HOME" > local.properties
-          # CI has 7GB RAM — restore normal build memory
+          # CI has 7GB RAM — restore normal build memory + parallelism
           sed -i 's/org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g/' gradle.properties
           sed -i 's/org.gradle.parallel=.*/org.gradle.parallel=true/' gradle.properties
-          # jniLibs are committed prebuilt; externalNativeBuild not needed for assembleRelease
-          ./gradlew :TMessagesProj_App:assembleRelease -x :TMessagesProj:externalNativeBuildRelease --no-daemon --stacktrace || \
           ./gradlew :TMessagesProj_App:assembleRelease --no-daemon --stacktrace
 
       - name: Rename artifact
