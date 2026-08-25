@@ -31,6 +31,20 @@ jobs:
           echo "=== Applied mods ==="
           grep -n "VipMod" TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
 
+      - name: Inject private api_id / api_hash (from repo secrets)
+        working-directory: telegram
+        env:
+          API_ID: ${{ secrets.API_ID }}
+          API_HASH: ${{ secrets.API_HASH }}
+        run: |
+          sed -i "s|public static int APP_ID = [0-9]*;|public static int APP_ID = ${API_ID};|" \
+            TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
+          sed -i "s|public static String APP_HASH = \"[0-9a-f]*\";|public static String APP_HASH = \"${API_HASH}\";|" \
+            TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
+          # verify without printing the hash
+          grep -q "APP_ID = ${API_ID};" TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java && echo "APP_ID injected OK"
+          grep -q "${API_HASH}" TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java && echo "APP_HASH injected OK"
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
