@@ -12,7 +12,10 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Telegram source (latest)
+      - name: Checkout this repo (vipmod.patch lives here)
+        uses: actions/checkout@v4
+
+      - name: Clone latest official Telegram source
         run: |
           git clone --depth 1 https://github.com/DrKLO/Telegram.git telegram
           cd telegram
@@ -21,6 +24,7 @@ jobs:
       - name: Apply VipMod patch
         run: |
           cd telegram
+          ls -la ../
           git apply --check ../vipmod.patch || (echo "::error::Patch failed to apply — source may have changed" && exit 1)
           git apply ../vipmod.patch
           echo "=== Applied mods ==="
