@@ -1,0 +1,167 @@
+diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java b/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
+index 4ed7e649..e352a649 100644
+--- a/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
++++ b/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
+@@ -29,6 +29,11 @@ public class BuildVars {
+     public static int APP_ID = 4;
+     public static String APP_HASH = "014b35b6184100b085b0d0572f9b5103";
+ 
++    // ── VipMod flags ───────────────────────────────
++    // anti-delete messages + no sponsored ads + speed boost
++    public static boolean NO_ADS_AND_KEEP_MESSAGES = true;
++    public static boolean SPEED_BOOST = true;
++
+     // SafetyNet key for Google Identity SDK, set it to empty to disable
+     public static String SAFETYNET_KEY = "AIzaSyDqt8P-7F7CPCseMkOiVRgb1LY8RN1bvH8";
+     public static String PLAYSTORE_APP_URL = "https://play.google.com/store/apps/details?id=org.telegram.messenger";
+diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/FileLoadOperation.java b/TMessagesProj/src/main/java/org/telegram/messenger/FileLoadOperation.java
+index 4d0dac30..8a431594 100644
+--- a/TMessagesProj/src/main/java/org/telegram/messenger/FileLoadOperation.java
++++ b/TMessagesProj/src/main/java/org/telegram/messenger/FileLoadOperation.java
+@@ -153,8 +153,9 @@ public class FileLoadOperation {
+     private int downloadChunkSize = 1024 * 32;
+     private int downloadChunkSizeBig = 1024 * 128;
+     private int cdnChunkCheckSize = 1024 * 128;
+-    private int maxDownloadRequests = 4;
+-    private int maxDownloadRequestsBig = 4;
++    // VipMod speed: doubled parallel download requests
++    private int maxDownloadRequests = BuildVars.SPEED_BOOST ? 8 : 4;
++    private int maxDownloadRequestsBig = BuildVars.SPEED_BOOST ? 8 : 4;
+     private int bigFileSizeFrom = 10 * 1024 * 1024;
+     private int maxCdnParts = (int) (FileLoader.DEFAULT_MAX_FILE_SIZE / downloadChunkSizeBig);
+ 
+@@ -292,8 +293,15 @@ public class FileLoadOperation {
+             maxDownloadRequestsBig = 8;
+         } else {
+             downloadChunkSizeBig = 1024 * 128;
+-            maxDownloadRequests = 4;
+-            maxDownloadRequestsBig = 4;
++            // VipMod speed: force experimental params (512KB chunks, 8 parallel) even without the flag
++            if (BuildVars.SPEED_BOOST) {
++                downloadChunkSizeBig = 1024 * 512;
++                maxDownloadRequests = 8;
++                maxDownloadRequestsBig = 8;
++            } else {
++                maxDownloadRequests = 4;
++                maxDownloadRequestsBig = 4;
++            }
+         }
+         maxCdnParts = (int) (FileLoader.DEFAULT_MAX_FILE_SIZE / downloadChunkSizeBig);
+     }
+diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java b/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
+index b2ebccd7..82f84ca8 100644
+--- a/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
++++ b/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
+@@ -41,7 +41,8 @@ public class FileUploadOperation {
+     private static final int minUploadChunkSlowNetworkSize = 32;
+     private static final int initialRequestsCount = 8;
+     private static final int initialRequestsSlowNetworkCount = 1;
+-    private static final int maxUploadingKBytes = 1024 * 2;
++    // VipMod speed: bigger chunks and more parallel uploads
++    private static final int maxUploadingKBytes = BuildVars.SPEED_BOOST ? 1024 * 8 : 1024 * 2;
+     private static final int maxUploadingSlowNetworkKBytes = 32;
+ 
+     private int maxRequestsCount;
+diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java b/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
+index 7a0b35b1..9d538291 100644
+--- a/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
++++ b/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
+@@ -18814,6 +18814,10 @@ public class MessagesController extends BaseController implements NotificationCe
+                 dialogs_read_outbox_max.put(dialogId, Math.max(value, update.max_id));
+             } else if (baseUpdate instanceof TL_update.TL_updateDeleteMessages) {
+                 TL_update.TL_updateDeleteMessages update = (TL_update.TL_updateDeleteMessages) baseUpdate;
++                if (BuildVars.NO_ADS_AND_KEEP_MESSAGES) {
++                    // VipMod anti-delete: ignore remote deletion of messages
++                    continue;
++                }
+                 if (deletedMessages == null) {
+                     deletedMessages = new LongSparseArray<>();
+                 }
+@@ -19336,6 +19340,10 @@ public class MessagesController extends BaseController implements NotificationCe
+                 dialogs_read_outbox_max.put(dialogId, Math.max(value, update.max_id));
+             } else if (baseUpdate instanceof TL_update.TL_updateDeleteChannelMessages) {
+                 TL_update.TL_updateDeleteChannelMessages update = (TL_update.TL_updateDeleteChannelMessages) baseUpdate;
++                if (BuildVars.NO_ADS_AND_KEEP_MESSAGES) {
++                    // VipMod anti-delete: ignore remote deletion of channel messages
++                    continue;
++                }
+                 if (BuildVars.LOGS_ENABLED) {
+                     FileLog.d(baseUpdate + " channelId = " + update.channel_id);
+                 }
+@@ -21087,7 +21095,7 @@ public class MessagesController extends BaseController implements NotificationCe
+                     getNotificationCenter().postNotificationName(NotificationCenter.messagesReadContent, key, value);
+                 }
+             }
+-            if (deletedMessagesFinal != null) {
++            if (deletedMessagesFinal != null && !BuildVars.NO_ADS_AND_KEEP_MESSAGES) {
+                 for (int a = 0, size = deletedMessagesFinal.size(); a < size; a++) {
+                     long dialogId = deletedMessagesFinal.keyAt(a);
+                     ArrayList<Integer> arrayList = deletedMessagesFinal.valueAt(a);
+@@ -21207,7 +21215,7 @@ public class MessagesController extends BaseController implements NotificationCe
+                 getMessagesStorage().markMessagesContentAsRead(key, arrayList, currentTime2, markContentAsReadMessagesDate);
+             }
+         }
+-        if (deletedMessages != null) {
++        if (deletedMessages != null && !BuildVars.NO_ADS_AND_KEEP_MESSAGES) {
+             for (int a = 0, size = deletedMessages.size(); a < size; a++) {
+                 long key = deletedMessages.keyAt(a);
+                 ArrayList<Integer> arrayList = deletedMessages.valueAt(a);
+@@ -21610,6 +21618,10 @@ public class MessagesController extends BaseController implements NotificationCe
+     }
+ 
+     public SponsoredMessagesInfo getSponsoredMessages(long dialogId) {
++        if (BuildVars.NO_ADS_AND_KEEP_MESSAGES) {
++            // VipMod no-ads: never load sponsored messages
++            return null;
++        }
+         SponsoredMessagesInfo info = sponsoredMessages.get(dialogId);
+         if (info != null && (info.loading || Math.abs(SystemClock.elapsedRealtime() - info.loadTime) <= 5 * 60 * 1000)) {
+             return info;
+diff --git a/TMessagesProj/src/main/res/values/strings.xml b/TMessagesProj/src/main/res/values/strings.xml
+index ffa4d566..c826e144 100644
+--- a/TMessagesProj/src/main/res/values/strings.xml
++++ b/TMessagesProj/src/main/res/values/strings.xml
+@@ -1,6 +1,6 @@
+ <?xml version="1.0" encoding="utf-8"?>
+ <resources>
+-    <string name="AppName">Telegram</string>
++    <string name="AppName">VipGram</string>
+     <string name="AppNameBeta">Telegram Beta</string>
+     <string name="LanguageName">English</string>
+     <string name="English">English</string>
+diff --git a/gradle.properties b/gradle.properties
+index 38299bed..a318e96d 100644
+--- a/gradle.properties
++++ b/gradle.properties
+@@ -11,18 +11,18 @@
+ # When configured, Gradle will run in incubating parallel mode.
+ # This option should only be used with decoupled projects. More details, visit
+ # http://www.gradle.org/docs/current/userguide/multi_project_builds.html#sec:decoupled_projects
+-# org.gradle.parallel=true
++# org.gradle.parallel=false
+ #Sat Mar 12 05:53:50 MSK 2016
+ APP_VERSION_CODE=7038
+ APP_VERSION_NAME=12.10.1
+-APP_PACKAGE=org.telegram.messenger
++APP_PACKAGE=com.vipgram.rez
+ IS_PRIVATE=false
+ RELEASE_KEY_PASSWORD=android
+ RELEASE_KEY_ALIAS=androidkey
+ RELEASE_STORE_PASSWORD=android
+-org.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1g
++org.gradle.jvmargs=-Xmx520m -XX:MaxMetaspaceSize=160m -XX:+UseSerialGC -Xss512k
+ org.gradle.daemon=true
+-org.gradle.parallel=true
++org.gradle.parallel=false
+ org.gradle.configureondemand=false
+ android.useAndroidX=true
+ android.enableJetifier=true
+@@ -30,3 +30,8 @@ android.defaults.buildfeatures.buildconfig=true
+ android.nonTransitiveRClass=false
+ android.nonFinalResIds=false
+ android.enableR8.fullMode=true
++
++org.gradle.workers.max=1
++
++kotlin.daemon.jvmargs=-Xmx280m -XX:MaxMetaspaceSize=128m
++kotlin.compiler.execution.strategy=in-process

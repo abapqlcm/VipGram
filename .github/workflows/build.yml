@@ -1,0 +1,64 @@
+name: Build VipGram APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'vipmod.patch'
+      - '.github/workflows/build.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Telegram source (latest)
+        run: |
+          git clone --depth 1 https://github.com/DrKLO/Telegram.git telegram
+          cd telegram
+          git log -1 --format="SOURCE: %h %s"
+
+      - name: Apply VipMod patch
+        run: |
+          cd telegram
+          git apply --check ../vipmod.patch || (echo "::error::Patch failed to apply — source may have changed" && exit 1)
+          git apply ../vipmod.patch
+          echo "=== Applied mods ==="
+          grep -n "VipMod" TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK + SDK packages
+        run: |
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+          yes | sdkmanager --licenses > /dev/null || true
+
+      - name: Build release APK
+        working-directory: telegram
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          # restore normal build memory for CI (7GB runner)
+          sed -i 's/org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g/' gradle.properties
+          sed -i 's/org.gradle.parallel=.*/org.gradle.parallel=true/' gradle.properties
+          ./gradlew :TMessagesProj_App:assembleRelease --no-daemon --stacktrace
+
+      - name: Rename artifact
+        run: |
+          APK=$(find telegram/TMessagesProj_App/build/outputs/apk/release -name "*.apk" | head -1)
+          cp "$APK" VipGram-${{ github.run_number }}.apk
+          ls -la VipGram-*.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: VipGram-APK
+          path: VipGram-*.apk
+          retention-days: 30
+          compression-level: 0
