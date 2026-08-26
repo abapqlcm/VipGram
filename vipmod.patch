@@ -261,7 +261,7 @@ index 26d82ff8..1583c38a 100644
              return null;
          }
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java b/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
-index ad867192..746ba0ba 100644
+index ad867192..973d9b2b 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
 @@ -14076,7 +14076,8 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
@@ -306,6 +306,51 @@ index ad867192..746ba0ba 100644
                  setItemVisible(editItem, false, animated);
              } else {
                  allowShare = true;
+@@ -17434,8 +17442,11 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
+                 messageObject != null && (MessagesController.getInstance(currentAccount).isPeerNoForwards(messageObject.getDialogId()) ||
+                 (messageObject.messageOwner != null && messageObject.messageOwner.noforwards)) || messageObject != null && messageObject.hasRevealedExtendedMedia()
+             ) {
+-                windowLayoutParams.flags |= WindowManager.LayoutParams.FLAG_SECURE;
+-                AndroidUtilities.logFlagSecure();
++                // VipMod v2.1: allow screenshots on self-destruct / noforwards media when NO_SCREENSHOT_RESTRICTION is on
++                if (!BuildVars.NO_SCREENSHOT_RESTRICTION) {
++                    windowLayoutParams.flags |= WindowManager.LayoutParams.FLAG_SECURE;
++                    AndroidUtilities.logFlagSecure();
++                }
+             } else {
+                 windowLayoutParams.flags &=~ WindowManager.LayoutParams.FLAG_SECURE;
+                 AndroidUtilities.logFlagSecure();
+diff --git a/TMessagesProj/src/main/java/org/telegram/ui/SecretMediaViewer.java b/TMessagesProj/src/main/java/org/telegram/ui/SecretMediaViewer.java
+index a402e93c..c491fe95 100644
+--- a/TMessagesProj/src/main/java/org/telegram/ui/SecretMediaViewer.java
++++ b/TMessagesProj/src/main/java/org/telegram/ui/SecretMediaViewer.java
+@@ -87,6 +87,7 @@ import org.telegram.messenger.FileLog;
+ import org.telegram.messenger.R;
+ import org.telegram.messenger.SharedConfig;
+ import org.telegram.messenger.UserConfig;
++import org.telegram.messenger.BuildVars;
+ import org.telegram.messenger.utils.WindowVisibilityManager;
+ import org.telegram.tgnet.ConnectionsManager;
+ import org.telegram.tgnet.TLRPC;
+@@ -963,12 +964,15 @@ public class SecretMediaViewer implements NotificationCenter.NotificationCenterD
+         windowLayoutParams.width = WindowManager.LayoutParams.MATCH_PARENT;
+         windowLayoutParams.gravity = Gravity.TOP;
+         windowLayoutParams.type = WindowManager.LayoutParams.LAST_APPLICATION_WINDOW;
+-        windowLayoutParams.flags = WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN |
++        windowLayoutParams.flags |= WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN |
+                 WindowManager.LayoutParams.FLAG_LAYOUT_INSET_DECOR |
+                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE |
+                 WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS;
+-        windowLayoutParams.flags |= WindowManager.LayoutParams.FLAG_SECURE;
+-        AndroidUtilities.logFlagSecure();
++        // VipMod v2.1: do not lock screenshots on secret/self-destruct media when NO_SCREENSHOT_RESTRICTION is on
++        if (!BuildVars.NO_SCREENSHOT_RESTRICTION) {
++            windowLayoutParams.flags |= WindowManager.LayoutParams.FLAG_SECURE;
++            AndroidUtilities.logFlagSecure();
++        }
+         centerImage.setParentView(containerView);
+         centerImage.setForceCrossfade(true);
+ 
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java b/TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java
 index 36debb74..d800d321 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java
