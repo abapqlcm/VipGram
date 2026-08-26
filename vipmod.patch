@@ -261,7 +261,7 @@ index 26d82ff8..1583c38a 100644
              return null;
          }
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java b/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
-index ad867192..6b6936f0 100644
+index ad867192..746ba0ba 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
 @@ -14076,7 +14076,8 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
@@ -284,7 +284,7 @@ index ad867192..6b6936f0 100644
              if (isVideo && !isLivePhoto) {
                  bottomLayout.setVisibility(View.VISIBLE);
                  bottomLayout.setTag(1);
-@@ -14761,18 +14763,19 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
+@@ -14761,11 +14763,17 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
              if (DialogObject.isEncryptedDialog(currentDialogId) && !isEmbedVideo || noforwards) {
                  setItemVisible(sendItem, false, false);
              }
@@ -305,14 +305,7 @@ index ad867192..6b6936f0 100644
 +                }
                  setItemVisible(editItem, false, animated);
              } else {
--                allowShare = true;
--                galleryButton.setVisibility(View.VISIBLE);
--                galleryGap.setVisibility(View.VISIBLE);
--                menuItem.showSubItem(gallery_menu_share);
--            }
-             groupedPhotosListView.fillList();
-         } else if (!secureDocuments.isEmpty()) {
-             allowShare = false;
+                 allowShare = true;
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java b/TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java
 index 36debb74..d800d321 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java
