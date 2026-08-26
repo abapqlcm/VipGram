@@ -107,7 +107,7 @@ index 4d0dac30..60986b3e 100644
          maxCdnParts = (int) (FileLoader.DEFAULT_MAX_FILE_SIZE / downloadChunkSizeBig);
      }
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java b/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
-index b2ebccd7..f0f9d833 100644
+index b2ebccd7..3921813a 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
 @@ -41,7 +41,8 @@ public class FileUploadOperation {
@@ -120,11 +120,35 @@ index b2ebccd7..f0f9d833 100644
      private static final int maxUploadingSlowNetworkKBytes = 32;
  
      private int maxRequestsCount;
+@@ -317,7 +318,8 @@ public class FileUploadOperation {
+                     }
+                     uploadChunkSize = chunkSize;
+                 }
+-                maxRequestsCount = Math.max(1, (slowNetwork ? maxUploadingSlowNetworkKBytes : maxUploadingKBytes) / uploadChunkSize);
++                // VipMod v2 speed fix: cap parallel uploads to 16 real connections (was up to 256 → server flood → KB/s upload)
++                maxRequestsCount = Math.max(1, Math.min(16, (slowNetwork ? maxUploadingSlowNetworkKBytes : maxUploadingKBytes) / uploadChunkSize));
+ 
+                 if (isEncrypted) {
+                     freeRequestIvs = new ArrayList<>(maxRequestsCount);
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java b/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
-index 7a0b35b1..d3e2b717 100644
+index 7a0b35b1..2000a68d 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
-@@ -10923,7 +10923,8 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -6859,6 +6859,13 @@ public class MessagesController extends BaseController implements NotificationCe
+         if (user == null) {
+             return false;
+         }
++        // VipMod v2: local premium look — force premium flag on our own account everywhere
++        if (BuildVars.LOCAL_PREMIUM_LOOK && UserConfig.getInstance(currentAccount).clientUserId == user.id && UserConfig.getInstance(currentAccount).isClientActivated()) {
++            user.premium = true;
++            if (user.status == null) {
++                user.status = new TLRPC.TL_userStatusRecently();
++            }
++        }
+         fromCache = fromCache && user.id / 1000 != 333 && user.id != 777000;
+         TLRPC.User oldUser = users.get(user.id);
+         if (oldUser == user && !force) {
+@@ -10923,7 +10930,8 @@ public class MessagesController extends BaseController implements NotificationCe
                          }
                      }
                  }
@@ -134,7 +158,7 @@ index 7a0b35b1..d3e2b717 100644
                  if (res.proxy) {
                      promoDialogType = PROMO_TYPE_PROXY;
                  } else if (!TextUtils.isEmpty(res.psa_type)) {
-@@ -14397,6 +14398,11 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -14397,6 +14405,11 @@ public class MessagesController extends BaseController implements NotificationCe
          if (messageObject.scheduled) {
              return;
          }
@@ -146,7 +170,7 @@ index 7a0b35b1..d3e2b717 100644
          ArrayList<Integer> arrayList = new ArrayList<>();
          if (messageObject.messageOwner.mentioned) {
              getMessagesStorage().markMentionMessageAsRead(-messageObject.messageOwner.peer_id.channel_id, messageObject.getId(), messageObject.getDialogId());
-@@ -18814,6 +18820,10 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -18814,6 +18827,10 @@ public class MessagesController extends BaseController implements NotificationCe
                  dialogs_read_outbox_max.put(dialogId, Math.max(value, update.max_id));
              } else if (baseUpdate instanceof TL_update.TL_updateDeleteMessages) {
                  TL_update.TL_updateDeleteMessages update = (TL_update.TL_updateDeleteMessages) baseUpdate;
@@ -157,7 +181,7 @@ index 7a0b35b1..d3e2b717 100644
                  if (deletedMessages == null) {
                      deletedMessages = new LongSparseArray<>();
                  }
-@@ -19336,6 +19346,10 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -19336,6 +19353,10 @@ public class MessagesController extends BaseController implements NotificationCe
                  dialogs_read_outbox_max.put(dialogId, Math.max(value, update.max_id));
              } else if (baseUpdate instanceof TL_update.TL_updateDeleteChannelMessages) {
                  TL_update.TL_updateDeleteChannelMessages update = (TL_update.TL_updateDeleteChannelMessages) baseUpdate;
@@ -168,7 +192,7 @@ index 7a0b35b1..d3e2b717 100644
                  if (BuildVars.LOGS_ENABLED) {
                      FileLog.d(baseUpdate + " channelId = " + update.channel_id);
                  }
-@@ -21087,7 +21101,7 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -21087,7 +21108,7 @@ public class MessagesController extends BaseController implements NotificationCe
                      getNotificationCenter().postNotificationName(NotificationCenter.messagesReadContent, key, value);
                  }
              }
@@ -177,7 +201,7 @@ index 7a0b35b1..d3e2b717 100644
                  for (int a = 0, size = deletedMessagesFinal.size(); a < size; a++) {
                      long dialogId = deletedMessagesFinal.keyAt(a);
                      ArrayList<Integer> arrayList = deletedMessagesFinal.valueAt(a);
-@@ -21207,7 +21221,7 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -21207,7 +21228,7 @@ public class MessagesController extends BaseController implements NotificationCe
                  getMessagesStorage().markMessagesContentAsRead(key, arrayList, currentTime2, markContentAsReadMessagesDate);
              }
          }
@@ -186,7 +210,7 @@ index 7a0b35b1..d3e2b717 100644
              for (int a = 0, size = deletedMessages.size(); a < size; a++) {
                  long key = deletedMessages.keyAt(a);
                  ArrayList<Integer> arrayList = deletedMessages.valueAt(a);
-@@ -21610,6 +21624,10 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -21610,6 +21631,10 @@ public class MessagesController extends BaseController implements NotificationCe
      }
  
      public SponsoredMessagesInfo getSponsoredMessages(long dialogId) {
@@ -212,7 +236,7 @@ index 0f79e448..1411f99e 100644
  
      public Long getEmojiStatus() {
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java b/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
-index 26d82ff8..0f62a43a 100644
+index 26d82ff8..1583c38a 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
 @@ -8672,8 +8672,7 @@ public class ChatActivity extends BaseFragment implements
@@ -225,8 +249,19 @@ index 26d82ff8..0f62a43a 100644
          );
  
          if (oldMessage != null) {
+@@ -15545,6 +15544,10 @@ public class ChatActivity extends BaseFragment implements
+     }
+ 
+     private Runnable sendSecretMessageRead(MessageObject messageObject, boolean readNow) {
++        // VipMod v2: keep self-destruct media alive — never start the destroy timer or notify the server
++        if (BuildVars.KEEP_SELF_DESTRUCT_MEDIA) {
++            return null;
++        }
+         if (messageObject == null || messageObject.isOut() || !messageObject.isSecretMedia() || messageObject.messageOwner.destroyTime != 0 || messageObject.messageOwner.ttl <= 0) {
+             return null;
+         }
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java b/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
-index ad867192..24b5efa3 100644
+index ad867192..6b6936f0 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
 @@ -14076,7 +14076,8 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
@@ -249,6 +284,35 @@ index ad867192..24b5efa3 100644
              if (isVideo && !isLivePhoto) {
                  bottomLayout.setVisibility(View.VISIBLE);
                  bottomLayout.setTag(1);
+@@ -14761,18 +14763,19 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
+             if (DialogObject.isEncryptedDialog(currentDialogId) && !isEmbedVideo || noforwards) {
+                 setItemVisible(sendItem, false, false);
+             }
+-            if (isEmbedVideo || newMessageObject.messageOwner.ttl != 0 && newMessageObject.messageOwner.ttl < 60 * 60 || noforwards) {
++            if (isEmbedVideo || noforwards) {
+                 allowShare = false;
+-                galleryButton.setVisibility(View.GONE);
+-                galleryGap.setVisibility(View.GONE);
+-                menuItem.hideSubItem(gallery_menu_share);
++                // VipMod v2: keep save/share visible for self-destruct media (ttl photos stay savable)
++                if (!BuildVars.KEEP_SELF_DESTRUCT_MEDIA || newMessageObject == null || newMessageObject.messageOwner == null || newMessageObject.messageOwner.ttl == 0) {
++                    galleryButton.setVisibility(View.GONE);
++                    galleryGap.setVisibility(View.GONE);
++                } else {
++                    galleryButton.setVisibility(View.VISIBLE);
++                    galleryGap.setVisibility(View.VISIBLE);
++                    menuItem.showSubItem(gallery_menu_share);
++                }
+                 setItemVisible(editItem, false, animated);
+             } else {
+-                allowShare = true;
+-                galleryButton.setVisibility(View.VISIBLE);
+-                galleryGap.setVisibility(View.VISIBLE);
+-                menuItem.showSubItem(gallery_menu_share);
+-            }
+             groupedPhotosListView.fillList();
+         } else if (!secureDocuments.isEmpty()) {
+             allowShare = false;
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java b/TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java
 index 36debb74..d800d321 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java
