@@ -41,7 +41,6 @@ jobs:
             TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
           sed -i "s|public static String APP_HASH = \"[0-9a-f]*\";|public static String APP_HASH = \"${API_HASH}\";|" \
             TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
-          # verify without printing the hash
           grep -q "APP_ID = ${API_ID};" TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java && echo "APP_ID injected OK"
           grep -q "${API_HASH}" TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java && echo "APP_HASH injected OK"
 
@@ -66,18 +65,21 @@ jobs:
           # CI has 7GB RAM — restore normal build memory + parallelism
           sed -i 's/org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=1g/' gradle.properties
           sed -i 's/org.gradle.parallel=.*/org.gradle.parallel=true/' gradle.properties
-          ./gradlew :TMessagesProj_App:assembleRelease --no-daemon --stacktrace
+          ./gradlew :TMessagesProj_App:assembleAfatRelease --no-daemon --stacktrace
 
-      - name: Rename artifact
+      - name: Collect APKs
         run: |
-          APK=$(find telegram/TMessagesProj_App/build/outputs/apk/release -name "*.apk" | head -1)
-          cp "$APK" VipGram-${{ github.run_number }}.apk
-          ls -la VipGram-*.apk
+          mkdir -p apks
+          find telegram/TMessagesProj_App/build/outputs/apk -name "*.apk" -exec cp {} apks/ \; || true
+          ls -la apks/
+          if [ -z "$(ls -A apks 2>/dev/null)" ]; then
+            echo "::error::No APK found in outputs"; exit 1
+          fi
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: VipGram-APK
-          path: VipGram-*.apk
+          path: apks/*.apk
           retention-days: 30
           compression-level: 0
