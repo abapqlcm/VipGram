@@ -49,10 +49,10 @@ index 32d590e8..b86928cd 100644
                  sendPing(datacenter, false);
              }
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java b/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
-index 4ed7e649..28ec49e2 100644
+index 4ed7e649..d58e8ad4 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
-@@ -29,6 +29,19 @@ public class BuildVars {
+@@ -29,6 +29,23 @@ public class BuildVars {
      public static int APP_ID = 4;
      public static String APP_HASH = "014b35b6184100b085b0d0572f9b5103";
  
@@ -68,6 +68,10 @@ index 4ed7e649..28ec49e2 100644
 +    public static boolean GHOST_STORY = true;
 +    // VipMod v2: show premium look locally (icon + badge only, no server unlock)
 +    public static boolean LOCAL_PREMIUM_LOOK = true;
++    // VipMod v2.3: hide online status (never send updateStatus online)
++    public static boolean HIDE_ONLINE = true;
++    // VipMod v2.3: ghost read - locally mark as read but never send read receipt to server
++    public static boolean GHOST_READ = true;
 +
      // SafetyNet key for Google Identity SDK, set it to empty to disable
      public static String SAFETYNET_KEY = "AIzaSyDqt8P-7F7CPCseMkOiVRgb1LY8RN1bvH8";
@@ -131,7 +135,7 @@ index b2ebccd7..3921813a 100644
                  if (isEncrypted) {
                      freeRequestIvs = new ArrayList<>(maxRequestsCount);
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java b/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
-index 7a0b35b1..2000a68d 100644
+index 7a0b35b1..75102faa 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
 @@ -6859,6 +6859,13 @@ public class MessagesController extends BaseController implements NotificationCe
@@ -148,7 +152,19 @@ index 7a0b35b1..2000a68d 100644
          fromCache = fromCache && user.id / 1000 != 333 && user.id != 777000;
          TLRPC.User oldUser = users.get(user.id);
          if (oldUser == user && !force) {
-@@ -10923,7 +10930,8 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -10534,8 +10541,10 @@ public class MessagesController extends BaseController implements NotificationCe
+                         }
+ 
+                         TL_account.updateStatus req = new TL_account.updateStatus();
+-                        req.offline = false;
++                        // VipMod v2.3: hide online — always report offline to the server
++                        req.offline = BuildVars.HIDE_ONLINE ? true : false;
+                         statusRequest = getConnectionsManager().sendRequest(req, (response, error) -> {
++
+                             if (error == null) {
+                                 lastStatusUpdateTime = System.currentTimeMillis();
+                                 offlineSent = false;
+@@ -10923,7 +10932,8 @@ public class MessagesController extends BaseController implements NotificationCe
                          }
                      }
                  }
@@ -158,7 +174,7 @@ index 7a0b35b1..2000a68d 100644
                  if (res.proxy) {
                      promoDialogType = PROMO_TYPE_PROXY;
                  } else if (!TextUtils.isEmpty(res.psa_type)) {
-@@ -14397,6 +14405,11 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -14397,6 +14407,11 @@ public class MessagesController extends BaseController implements NotificationCe
          if (messageObject.scheduled) {
              return;
          }
@@ -170,7 +186,24 @@ index 7a0b35b1..2000a68d 100644
          ArrayList<Integer> arrayList = new ArrayList<>();
          if (messageObject.messageOwner.mentioned) {
              getMessagesStorage().markMentionMessageAsRead(-messageObject.messageOwner.peer_id.channel_id, messageObject.getId(), messageObject.getDialogId());
-@@ -18814,6 +18827,10 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -14735,12 +14750,14 @@ public class MessagesController extends BaseController implements NotificationCe
+                     }
+                 }));
+ 
+-                createReadTask = maxPositiveId != Integer.MAX_VALUE;
++                // VipMod v2.3: ghost read — never create a server read task, but keep local read UI
++                createReadTask = !BuildVars.GHOST_READ && maxPositiveId != Integer.MAX_VALUE;
+             } else {
+                 if (maxDate == 0) {
+                     return;
+                 }
+-                createReadTask = true;
++                // VipMod v2.3: ghost read (secret chats too)
++                createReadTask = !BuildVars.GHOST_READ;
+ 
+                 TLRPC.EncryptedChat chat = getEncryptedChat(DialogObject.getEncryptedChatId(dialogId));
+                 getMessagesStorage().processPendingRead(dialogId, maxPositiveId, maxNegativeId, scheduledCount);
+@@ -18814,6 +18831,10 @@ public class MessagesController extends BaseController implements NotificationCe
                  dialogs_read_outbox_max.put(dialogId, Math.max(value, update.max_id));
              } else if (baseUpdate instanceof TL_update.TL_updateDeleteMessages) {
                  TL_update.TL_updateDeleteMessages update = (TL_update.TL_updateDeleteMessages) baseUpdate;
@@ -181,7 +214,7 @@ index 7a0b35b1..2000a68d 100644
                  if (deletedMessages == null) {
                      deletedMessages = new LongSparseArray<>();
                  }
-@@ -19336,6 +19353,10 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -19336,6 +19357,10 @@ public class MessagesController extends BaseController implements NotificationCe
                  dialogs_read_outbox_max.put(dialogId, Math.max(value, update.max_id));
              } else if (baseUpdate instanceof TL_update.TL_updateDeleteChannelMessages) {
                  TL_update.TL_updateDeleteChannelMessages update = (TL_update.TL_updateDeleteChannelMessages) baseUpdate;
@@ -192,7 +225,7 @@ index 7a0b35b1..2000a68d 100644
                  if (BuildVars.LOGS_ENABLED) {
                      FileLog.d(baseUpdate + " channelId = " + update.channel_id);
                  }
-@@ -21087,7 +21108,7 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -21087,7 +21112,7 @@ public class MessagesController extends BaseController implements NotificationCe
                      getNotificationCenter().postNotificationName(NotificationCenter.messagesReadContent, key, value);
                  }
              }
@@ -201,7 +234,7 @@ index 7a0b35b1..2000a68d 100644
                  for (int a = 0, size = deletedMessagesFinal.size(); a < size; a++) {
                      long dialogId = deletedMessagesFinal.keyAt(a);
                      ArrayList<Integer> arrayList = deletedMessagesFinal.valueAt(a);
-@@ -21207,7 +21228,7 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -21207,7 +21232,7 @@ public class MessagesController extends BaseController implements NotificationCe
                  getMessagesStorage().markMessagesContentAsRead(key, arrayList, currentTime2, markContentAsReadMessagesDate);
              }
          }
@@ -210,7 +243,7 @@ index 7a0b35b1..2000a68d 100644
              for (int a = 0, size = deletedMessages.size(); a < size; a++) {
                  long key = deletedMessages.keyAt(a);
                  ArrayList<Integer> arrayList = deletedMessages.valueAt(a);
-@@ -21610,6 +21631,10 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -21610,6 +21635,10 @@ public class MessagesController extends BaseController implements NotificationCe
      }
  
      public SponsoredMessagesInfo getSponsoredMessages(long dialogId) {
