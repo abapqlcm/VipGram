@@ -20,11 +20,39 @@ index 640e841b..3bc9b8f4 100644
          }
        },
        "oauth_client": [
+diff --git a/TMessagesProj/jni/tgnet/Connection.cpp b/TMessagesProj/jni/tgnet/Connection.cpp
+index 3ce0c222..56f30dcf 100644
+--- a/TMessagesProj/jni/tgnet/Connection.cpp
++++ b/TMessagesProj/jni/tgnet/Connection.cpp
+@@ -705,8 +705,8 @@ void Connection::onDisconnectedInternal(int32_t reason, int32_t error) {
+                 waitForReconnectTimer = true;
+                 reconnectTimer->setTimeout(lastReconnectTimeout, false);
+                 lastReconnectTimeout *= 2;
+-                if (lastReconnectTimeout > 400) {
+-                    lastReconnectTimeout = 400;
++                if (lastReconnectTimeout > 200) { // VipMod v2: faster reconnect ceiling (200ms instead of 400ms)
++                    lastReconnectTimeout = 200;
+                 }
+                 reconnectTimer->start();
+             }
+diff --git a/TMessagesProj/jni/tgnet/ConnectionsManager.cpp b/TMessagesProj/jni/tgnet/ConnectionsManager.cpp
+index 32d590e8..b86928cd 100644
+--- a/TMessagesProj/jni/tgnet/ConnectionsManager.cpp
++++ b/TMessagesProj/jni/tgnet/ConnectionsManager.cpp
+@@ -292,7 +292,7 @@ void ConnectionsManager::select() {
+     }
+     if (datacenter != nullptr) {
+         if (datacenter->hasAuthKey(ConnectionTypeGeneric, 1)) {
+-            if (llabs(now - lastPingTime) >= (testBackend ? 2000 : 19000)) {
++            if (llabs(now - lastPingTime) >= (testBackend ? 2000 : 12000)) { // VipMod v2: ping every 12s instead of 19s — faster disconnect detection
+                 lastPingTime = now;
+                 sendPing(datacenter, false);
+             }
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java b/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
-index 4ed7e649..e352a649 100644
+index 4ed7e649..28ec49e2 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
-@@ -29,6 +29,11 @@ public class BuildVars {
+@@ -29,6 +29,19 @@ public class BuildVars {
      public static int APP_ID = 4;
      public static String APP_HASH = "014b35b6184100b085b0d0572f9b5103";
  
@@ -32,12 +60,20 @@ index 4ed7e649..e352a649 100644
 +    // anti-delete messages + no sponsored ads + speed boost
 +    public static boolean NO_ADS_AND_KEEP_MESSAGES = true;
 +    public static boolean SPEED_BOOST = true;
++    // VipMod v2: allow screenshots everywhere (secret chats, noforwards)
++    public static boolean NO_SCREENSHOT_RESTRICTION = true;
++    // VipMod v2: keep self-destruct photos after view
++    public static boolean KEEP_SELF_DESTRUCT_MEDIA = true;
++    // VipMod v2: view stories as ghost (don't mark as seen)
++    public static boolean GHOST_STORY = true;
++    // VipMod v2: show premium look locally (icon + badge only, no server unlock)
++    public static boolean LOCAL_PREMIUM_LOOK = true;
 +
      // SafetyNet key for Google Identity SDK, set it to empty to disable
      public static String SAFETYNET_KEY = "AIzaSyDqt8P-7F7CPCseMkOiVRgb1LY8RN1bvH8";
      public static String PLAYSTORE_APP_URL = "https://play.google.com/store/apps/details?id=org.telegram.messenger";
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/FileLoadOperation.java b/TMessagesProj/src/main/java/org/telegram/messenger/FileLoadOperation.java
-index 4d0dac30..8a431594 100644
+index 4d0dac30..60986b3e 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/FileLoadOperation.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/FileLoadOperation.java
 @@ -153,8 +153,9 @@ public class FileLoadOperation {
@@ -46,9 +82,9 @@ index 4d0dac30..8a431594 100644
      private int cdnChunkCheckSize = 1024 * 128;
 -    private int maxDownloadRequests = 4;
 -    private int maxDownloadRequestsBig = 4;
-+    // VipMod speed: doubled parallel download requests
-+    private int maxDownloadRequests = BuildVars.SPEED_BOOST ? 8 : 4;
-+    private int maxDownloadRequestsBig = BuildVars.SPEED_BOOST ? 8 : 4;
++    // VipMod v2 speed: 12 parallel download requests (up from 8)
++    private int maxDownloadRequests = BuildVars.SPEED_BOOST ? 12 : 4;
++    private int maxDownloadRequestsBig = BuildVars.SPEED_BOOST ? 12 : 4;
      private int bigFileSizeFrom = 10 * 1024 * 1024;
      private int maxCdnParts = (int) (FileLoader.DEFAULT_MAX_FILE_SIZE / downloadChunkSizeBig);
  
@@ -58,11 +94,11 @@ index 4d0dac30..8a431594 100644
              downloadChunkSizeBig = 1024 * 128;
 -            maxDownloadRequests = 4;
 -            maxDownloadRequestsBig = 4;
-+            // VipMod speed: force experimental params (512KB chunks, 8 parallel) even without the flag
++            // VipMod v2 speed: force experimental params (512KB chunks, 12 parallel) even without the flag
 +            if (BuildVars.SPEED_BOOST) {
 +                downloadChunkSizeBig = 1024 * 512;
-+                maxDownloadRequests = 8;
-+                maxDownloadRequestsBig = 8;
++                maxDownloadRequests = 12;
++                maxDownloadRequestsBig = 12;
 +            } else {
 +                maxDownloadRequests = 4;
 +                maxDownloadRequestsBig = 4;
@@ -71,7 +107,7 @@ index 4d0dac30..8a431594 100644
          maxCdnParts = (int) (FileLoader.DEFAULT_MAX_FILE_SIZE / downloadChunkSizeBig);
      }
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java b/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
-index b2ebccd7..82f84ca8 100644
+index b2ebccd7..f0f9d833 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
 @@ -41,7 +41,8 @@ public class FileUploadOperation {
@@ -79,16 +115,38 @@ index b2ebccd7..82f84ca8 100644
      private static final int initialRequestsCount = 8;
      private static final int initialRequestsSlowNetworkCount = 1;
 -    private static final int maxUploadingKBytes = 1024 * 2;
-+    // VipMod speed: bigger chunks and more parallel uploads
-+    private static final int maxUploadingKBytes = BuildVars.SPEED_BOOST ? 1024 * 8 : 1024 * 2;
++    // VipMod v2 speed: even bigger chunks and more parallel uploads (12 concurrent)
++    private static final int maxUploadingKBytes = BuildVars.SPEED_BOOST ? 1024 * 16 : 1024 * 2;
      private static final int maxUploadingSlowNetworkKBytes = 32;
  
      private int maxRequestsCount;
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java b/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
-index 7a0b35b1..9d538291 100644
+index 7a0b35b1..d3e2b717 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
-@@ -18814,6 +18814,10 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -10923,7 +10923,8 @@ public class MessagesController extends BaseController implements NotificationCe
+                         }
+                     }
+                 }
+-                promoDialogId = did;
++                // VipMod v2: never accept proxy sponsor promo
++                promoDialogId = BuildVars.NO_ADS_AND_KEEP_MESSAGES ? 0 : did;
+                 if (res.proxy) {
+                     promoDialogType = PROMO_TYPE_PROXY;
+                 } else if (!TextUtils.isEmpty(res.psa_type)) {
+@@ -14397,6 +14398,11 @@ public class MessagesController extends BaseController implements NotificationCe
+         if (messageObject.scheduled) {
+             return;
+         }
++        // VipMod v2: keep self-destruct media alive — never tell the server it was viewed
++        if (BuildVars.KEEP_SELF_DESTRUCT_MEDIA && MessageObject.getMedia(messageObject.messageOwner) != null
++                && MessageObject.getMedia(messageObject.messageOwner).ttl_seconds > 0) {
++            return;
++        }
+         ArrayList<Integer> arrayList = new ArrayList<>();
+         if (messageObject.messageOwner.mentioned) {
+             getMessagesStorage().markMentionMessageAsRead(-messageObject.messageOwner.peer_id.channel_id, messageObject.getId(), messageObject.getDialogId());
+@@ -18814,6 +18820,10 @@ public class MessagesController extends BaseController implements NotificationCe
                  dialogs_read_outbox_max.put(dialogId, Math.max(value, update.max_id));
              } else if (baseUpdate instanceof TL_update.TL_updateDeleteMessages) {
                  TL_update.TL_updateDeleteMessages update = (TL_update.TL_updateDeleteMessages) baseUpdate;
@@ -99,7 +157,7 @@ index 7a0b35b1..9d538291 100644
                  if (deletedMessages == null) {
                      deletedMessages = new LongSparseArray<>();
                  }
-@@ -19336,6 +19340,10 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -19336,6 +19346,10 @@ public class MessagesController extends BaseController implements NotificationCe
                  dialogs_read_outbox_max.put(dialogId, Math.max(value, update.max_id));
              } else if (baseUpdate instanceof TL_update.TL_updateDeleteChannelMessages) {
                  TL_update.TL_updateDeleteChannelMessages update = (TL_update.TL_updateDeleteChannelMessages) baseUpdate;
@@ -110,7 +168,7 @@ index 7a0b35b1..9d538291 100644
                  if (BuildVars.LOGS_ENABLED) {
                      FileLog.d(baseUpdate + " channelId = " + update.channel_id);
                  }
-@@ -21087,7 +21095,7 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -21087,7 +21101,7 @@ public class MessagesController extends BaseController implements NotificationCe
                      getNotificationCenter().postNotificationName(NotificationCenter.messagesReadContent, key, value);
                  }
              }
@@ -119,7 +177,7 @@ index 7a0b35b1..9d538291 100644
                  for (int a = 0, size = deletedMessagesFinal.size(); a < size; a++) {
                      long dialogId = deletedMessagesFinal.keyAt(a);
                      ArrayList<Integer> arrayList = deletedMessagesFinal.valueAt(a);
-@@ -21207,7 +21215,7 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -21207,7 +21221,7 @@ public class MessagesController extends BaseController implements NotificationCe
                  getMessagesStorage().markMessagesContentAsRead(key, arrayList, currentTime2, markContentAsReadMessagesDate);
              }
          }
@@ -128,7 +186,7 @@ index 7a0b35b1..9d538291 100644
              for (int a = 0, size = deletedMessages.size(); a < size; a++) {
                  long key = deletedMessages.keyAt(a);
                  ArrayList<Integer> arrayList = deletedMessages.valueAt(a);
-@@ -21610,6 +21618,10 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -21610,6 +21624,10 @@ public class MessagesController extends BaseController implements NotificationCe
      }
  
      public SponsoredMessagesInfo getSponsoredMessages(long dialogId) {
@@ -139,6 +197,75 @@ index 7a0b35b1..9d538291 100644
          SponsoredMessagesInfo info = sponsoredMessages.get(dialogId);
          if (info != null && (info.loading || Math.abs(SystemClock.elapsedRealtime() - info.loadTime) <= 5 * 60 * 1000)) {
              return info;
+diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/UserConfig.java b/TMessagesProj/src/main/java/org/telegram/messenger/UserConfig.java
+index 0f79e448..1411f99e 100644
+--- a/TMessagesProj/src/main/java/org/telegram/messenger/UserConfig.java
++++ b/TMessagesProj/src/main/java/org/telegram/messenger/UserConfig.java
+@@ -576,7 +576,8 @@ public class UserConfig extends BaseController {
+         if (user == null) {
+             return false;
+         }
+-        return user.premium;
++        // VipMod v2: local premium look — star badge & premium UI for self, no server changes
++        return user.premium || BuildVars.LOCAL_PREMIUM_LOOK;
+     }
+ 
+     public Long getEmojiStatus() {
+diff --git a/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java b/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
+index 26d82ff8..0f62a43a 100644
+--- a/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
++++ b/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
+@@ -8672,8 +8672,7 @@ public class ChatActivity extends BaseFragment implements
+         chatScrollHelper.setAnimationCallback(chatScrollHelperCallback);
+ 
+         flagSecure = new FlagSecureReason(getParentActivity().getWindow(), () ->
+-            currentEncryptedChat != null ||
+-            isPeerNoForwards()
++            (!BuildVars.NO_SCREENSHOT_RESTRICTION) && (currentEncryptedChat != null || isPeerNoForwards())
+         );
+ 
+         if (oldMessage != null) {
+diff --git a/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java b/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
+index ad867192..24b5efa3 100644
+--- a/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
++++ b/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
+@@ -14076,7 +14076,8 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
+ 
+         animatorPollAttachButtonsVisibility.setValue(sendPhotoTypeIsPollMediaEdit, false);
+ 
+-        final boolean noforwards = messageObject != null && (MessagesController.getInstance(currentAccount).isPeerNoForwards(messageObject.getDialogId()) || (messageObject.messageOwner != null && messageObject.messageOwner.noforwards) || messageObject.hasRevealedExtendedMedia());
++        // VipMod v2: ignore noforwards (save/copy from protected channels)
++        final boolean noforwards = !BuildVars.NO_SCREENSHOT_RESTRICTION && messageObject != null && (MessagesController.getInstance(currentAccount).isPeerNoForwards(messageObject.getDialogId()) || (messageObject.messageOwner != null && messageObject.messageOwner.noforwards) || messageObject.hasRevealedExtendedMedia());
+         if (messageObject != null && messages == null) {
+             if (messageObject.messageOwner != null && MessageObject.getMedia(messageObject.messageOwner) instanceof TLRPC.TL_messageMediaWebPage && MessageObject.getMedia(messageObject.messageOwner).webpage != null) {
+                 TLRPC.WebPage webPage = MessageObject.getMedia(messageObject.messageOwner).webpage;
+@@ -14524,7 +14525,8 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
+             actionBarContainer.setSubtitle(subtitle, animated);
+ 
+             boolean isInvoice = newMessageObject.isInvoice();
+-            boolean noforwards = MessagesController.getInstance(currentAccount).isPeerNoForwards(newMessageObject.getDialogId()) || (newMessageObject.messageOwner != null && newMessageObject.messageOwner.noforwards) || newMessageObject.hasRevealedExtendedMedia();
++            // VipMod v2: ignore noforwards for save/share
++            boolean noforwards = !BuildVars.NO_SCREENSHOT_RESTRICTION && (MessagesController.getInstance(currentAccount).isPeerNoForwards(newMessageObject.getDialogId()) || (newMessageObject.messageOwner != null && newMessageObject.messageOwner.noforwards) || newMessageObject.hasRevealedExtendedMedia());
+             if (isVideo && !isLivePhoto) {
+                 bottomLayout.setVisibility(View.VISIBLE);
+                 bottomLayout.setTag(1);
+diff --git a/TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java b/TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java
+index 36debb74..d800d321 100644
+--- a/TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java
++++ b/TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java
+@@ -3723,6 +3723,12 @@ public class StoriesController {
+ 
+         protected boolean markAsRead(int storyId) {
+             if (seenStories.contains(storyId)) return false;
++            // VipMod v2: ghost story mode — record locally but never notify the server
++            if (BuildVars.GHOST_STORY) {
++                saveCache();
++                NotificationCenter.getInstance(currentAccount).postNotificationName(NotificationCenter.storiesReadUpdated);
++                return true;
++            }
+             seenStories.add(storyId);
+             saveCache();
+             TL_stories.TL_stories_incrementStoryViews req = new TL_stories.TL_stories_incrementStoryViews();
 diff --git a/TMessagesProj/src/main/res/values/strings.xml b/TMessagesProj/src/main/res/values/strings.xml
 index ffa4d566..c826e144 100644
 --- a/TMessagesProj/src/main/res/values/strings.xml
@@ -151,6 +278,37 @@ index ffa4d566..c826e144 100644
      <string name="AppNameBeta">Telegram Beta</string>
      <string name="LanguageName">English</string>
      <string name="English">English</string>
+diff --git a/TMessagesProj_App/build.gradle b/TMessagesProj_App/build.gradle
+index b8a0ed89..3d8d87a8 100644
+--- a/TMessagesProj_App/build.gradle
++++ b/TMessagesProj_App/build.gradle
+@@ -111,7 +111,7 @@ android {
+     productFlavors {
+         bundleAfat {
+             ndk {
+-                abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
++                abiFilters "arm64-v8a"
+             }
+             ext {
+                 abiVersionCode = 1
+@@ -120,7 +120,7 @@ android {
+         }
+         bundleAfat_SDK23 {
+             ndk {
+-                abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
++                abiFilters "arm64-v8a"
+             }
+             sourceSets.debug {
+                 manifest.srcFile '../TMessagesProj/config/debug/AndroidManifest_SDK23.xml'
+@@ -136,7 +136,7 @@ android {
+         }
+         afat {
+             ndk {
+-                abiFilters "armeabi-v7a", "arm64-v8a", "x86", "x86_64"
++                abiFilters "arm64-v8a"
+             }
+             sourceSets.debug {
+                 manifest.srcFile '../TMessagesProj/config/debug/AndroidManifest_SDK23.xml'
 diff --git a/TMessagesProj_App/google-services.json b/TMessagesProj_App/google-services.json
 index 640e841b..3b78d754 100644
 --- a/TMessagesProj_App/google-services.json
@@ -183,15 +341,15 @@ index 640e841b..3b78d754 100644
        },
        "oauth_client": [
 diff --git a/gradle.properties b/gradle.properties
-index 38299bed..a318e96d 100644
+index 38299bed..27ced445 100644
 --- a/gradle.properties
 +++ b/gradle.properties
-@@ -11,18 +11,18 @@
+@@ -11,16 +11,16 @@
  # When configured, Gradle will run in incubating parallel mode.
  # This option should only be used with decoupled projects. More details, visit
  # http://www.gradle.org/docs/current/userguide/multi_project_builds.html#sec:decoupled_projects
 -# org.gradle.parallel=true
-+# org.gradle.parallel=false
++org.gradle.parallel=true
  #Sat Mar 12 05:53:50 MSK 2016
  APP_VERSION_CODE=7038
  APP_VERSION_NAME=12.10.1
@@ -202,13 +360,10 @@ index 38299bed..a318e96d 100644
  RELEASE_KEY_ALIAS=androidkey
  RELEASE_STORE_PASSWORD=android
 -org.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1g
-+org.gradle.jvmargs=-Xmx520m -XX:MaxMetaspaceSize=160m -XX:+UseSerialGC -Xss512k
++org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=512m
  org.gradle.daemon=true
--org.gradle.parallel=true
-+org.gradle.parallel=false
+ org.gradle.parallel=true
  org.gradle.configureondemand=false
- android.useAndroidX=true
- android.enableJetifier=true
 @@ -30,3 +30,8 @@ android.defaults.buildfeatures.buildconfig=true
  android.nonTransitiveRClass=false
  android.nonFinalResIds=false
