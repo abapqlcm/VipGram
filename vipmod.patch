@@ -184,7 +184,7 @@ index b2ebccd7..3921813a 100644
                  if (isEncrypted) {
                      freeRequestIvs = new ArrayList<>(maxRequestsCount);
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java b/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
-index 7a0b35b1..22b42ed1 100644
+index 7a0b35b1..4ce6cd95 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
 @@ -6859,6 +6859,13 @@ public class MessagesController extends BaseController implements NotificationCe
@@ -292,8 +292,8 @@ index 7a0b35b1..22b42ed1 100644
 -                            getContactsController().setPrivacyRules(update.rules, ContactsController.PRIVACY_RULES_TYPE_LASTSEEN);
 +                            // VipMod v2.4: hide last seen — force privacy to Nobody
 +                            if (BuildVars.HIDE_LAST_SEEN) {
-+                                TLRPC.TL_privacyRuleDisallowAll rule = new TLRPC.TL_privacyRuleDisallowAll();
-+                                ArrayList<TLRPC.TL_privacyRule> newRules = new ArrayList<>();
++                                TLRPC.TL_privacyValueDisallowAll rule = new TLRPC.TL_privacyValueDisallowAll();
++                                ArrayList<TLRPC.PrivacyRule> newRules = new ArrayList<>();
 +                                newRules.add(rule);
 +                                getContactsController().setPrivacyRules(newRules, ContactsController.PRIVACY_RULES_TYPE_LASTSEEN);
 +                            } else {
@@ -346,7 +346,7 @@ index 0f79e448..1411f99e 100644
  
      public Long getEmojiStatus() {
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java b/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
-index 26d82ff8..20eb434d 100644
+index 26d82ff8..b34c4936 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
 @@ -59,6 +59,7 @@ import android.media.AudioManager;
@@ -445,7 +445,7 @@ index 26d82ff8..20eb434d 100644
 +                    if (path != null && (path.toLowerCase().endsWith(".ttf") || path.toLowerCase().endsWith(".otf"))) {
 +                        AndroidUtilities.setCustomFont(path);
 +                        String ok = LocaleController.getInstance().getCurrentLocale().getLanguage().equals("fa") ? LocaleController.getString(R.string.VipFontSetFa) : LocaleController.getString(R.string.VipFontSet);
-+                        BulletinFactory.of(this).createSimpleBulletin(ok, themeDelegate).show();
++                        BulletinFactory.of(this).createSimpleBulletin(ok, null).show();
 +                        // recreate activity to apply font everywhere
 +                        if (getParentActivity() != null) {
 +                            getParentActivity().recreate();
@@ -637,7 +637,7 @@ index 26d82ff8..20eb434d 100644
 +            deleteRecursively(workDir);
 +
 +            String doneMsg = LocaleController.getInstance().getCurrentLocale().getLanguage().equals("fa") ? LocaleController.getString(R.string.VipExportDoneFa) : LocaleController.getString(R.string.VipExportDone);
-+            BulletinFactory.of(this, themeDelegate).createSimpleBulletin(doneMsg, zipFile.getAbsolutePath()).show();
++            BulletinFactory.of(this).createSimpleBulletin(doneMsg, zipFile.getAbsolutePath()).show();
 +        } catch (Exception e) {
 +            FileLog.e("VipGram export", e);
 +            String errMsg = LocaleController.getInstance().getCurrentLocale().getLanguage().equals("fa") ? LocaleController.getString(R.string.VipExportErrorFa) : LocaleController.getString(R.string.VipExportError);
