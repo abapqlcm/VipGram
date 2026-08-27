@@ -346,7 +346,7 @@ index 0f79e448..1411f99e 100644
  
      public Long getEmojiStatus() {
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java b/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
-index 26d82ff8..b34c4936 100644
+index 26d82ff8..a52d9880 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
 @@ -59,6 +59,7 @@ import android.media.AudioManager;
@@ -458,7 +458,7 @@ index 26d82ff8..b34c4936 100644
              }
          }
      }
-@@ -47251,4 +47298,233 @@ public class ChatActivity extends BaseFragment implements
+@@ -47251,4 +47298,234 @@ public class ChatActivity extends BaseFragment implements
          abstract void drawChatBackgroundElements(Canvas canvas, @Nullable RectF position);
          abstract void drawChatForegroundElements(Canvas canvas, @Nullable RectF position);
      }
@@ -497,10 +497,11 @@ index 26d82ff8..b34c4936 100644
 +            BulletinFactory.of(this).createErrorBulletin(noMedia, themeDelegate).show();
 +            return;
 +        }
++        final boolean isMusicFinal = isMusic;
 +        MediaController.saveFilesFromMessages(getParentActivity(), getAccountInstance(), mediaToSave, (count) -> {
 +            if (getParentActivity() == null) return;
 +            if (count > 0) {
-+                BulletinFactory.of(ChatActivity.this).createDownloadBulletin(isMusic ? BulletinFactory.FileType.AUDIOS : BulletinFactory.FileType.UNKNOWNS, count, themeDelegate).show();
++                BulletinFactory.of(ChatActivity.this).createDownloadBulletin(isMusicFinal ? BulletinFactory.FileType.AUDIOS : BulletinFactory.FileType.UNKNOWNS, count, themeDelegate).show();
 +            }
 +        });
 +    }
