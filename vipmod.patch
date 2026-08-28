@@ -48,11 +48,52 @@ index 32d590e8..b86928cd 100644
                  lastPingTime = now;
                  sendPing(datacenter, false);
              }
+diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/AndroidUtilities.java b/TMessagesProj/src/main/java/org/telegram/messenger/AndroidUtilities.java
+index 5a26f49b..9e93046f 100644
+--- a/TMessagesProj/src/main/java/org/telegram/messenger/AndroidUtilities.java
++++ b/TMessagesProj/src/main/java/org/telegram/messenger/AndroidUtilities.java
+@@ -2390,7 +2390,36 @@ public class AndroidUtilities {
+         return result;
+     }
+ 
++    // VipMod v2.4: custom font from file (set by user in Appearance settings)
++    public static String customFontPath = null; // absolute path to user .ttf file
++    public static Typeface customFontTypeface = null;
++
++    public static void setCustomFont(String path) {
++        customFontPath = path;
++        customFontTypeface = null;
++        if (path != null && !path.isEmpty()) {
++            try {
++                customFontTypeface = Typeface.createFromFile(path);
++            } catch (Exception e) {
++                FileLog.e("VipMod custom font", e);
++                customFontTypeface = null;
++                customFontPath = null;
++            }
++        }
++        // clear cache so all views reload with new font
++        typefaceCache.clear();
++    }
++
+     public static Typeface getTypeface(String assetPath) {
++        // VipMod v2.4: if custom font set, use it for everything except emoji
++        if (customFontTypeface != null && customFontPath != null && !assetPath.toLowerCase().contains("emoji")) {
++            synchronized (typefaceCache) {
++                if (!typefaceCache.containsKey("vip_custom_font")) {
++                    typefaceCache.put("vip_custom_font", customFontTypeface);
++                }
++            }
++            return customFontTypeface;
++        }
+         synchronized (typefaceCache) {
+             if (!typefaceCache.containsKey(assetPath)) {
+                 try {
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java b/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
-index 4ed7e649..28ec49e2 100644
+index 4ed7e649..5a5b7759 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
-@@ -29,6 +29,19 @@ public class BuildVars {
+@@ -29,6 +29,31 @@ public class BuildVars {
      public static int APP_ID = 4;
      public static String APP_HASH = "014b35b6184100b085b0d0572f9b5103";
  
@@ -68,6 +109,18 @@ index 4ed7e649..28ec49e2 100644
 +    public static boolean GHOST_STORY = true;
 +    // VipMod v2: show premium look locally (icon + badge only, no server unlock)
 +    public static boolean LOCAL_PREMIUM_LOOK = true;
++    // VipMod v2.3: hide online status (never send updateStatus online)
++    public static boolean HIDE_ONLINE = true;
++    // VipMod v2.3: ghost read - locally mark as read but never send read receipt to server
++    public static boolean GHOST_READ = true;
++    // VipMod v2.4: hide typing/recording indicator
++    public static boolean HIDE_TYPING = true;
++    // VipMod v2.4: hide last seen (force privacy to Nobody, like premium)
++    public static boolean HIDE_LAST_SEEN = true;
++    // VipMod v2.4: allow screen recording without notification
++    public static boolean ALLOW_SCREEN_RECORD = true;
++    // VipMod v2.4: enable custom font from file
++    public static boolean CUSTOM_FONT = true;
 +
      // SafetyNet key for Google Identity SDK, set it to empty to disable
      public static String SAFETYNET_KEY = "AIzaSyDqt8P-7F7CPCseMkOiVRgb1LY8RN1bvH8";
@@ -107,31 +160,34 @@ index 4d0dac30..60986b3e 100644
          maxCdnParts = (int) (FileLoader.DEFAULT_MAX_FILE_SIZE / downloadChunkSizeBig);
      }
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java b/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
-index b2ebccd7..3921813a 100644
+index b2ebccd7..c9169255 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
-@@ -41,7 +41,8 @@ public class FileUploadOperation {
+@@ -41,8 +41,9 @@ public class FileUploadOperation {
      private static final int minUploadChunkSlowNetworkSize = 32;
      private static final int initialRequestsCount = 8;
      private static final int initialRequestsSlowNetworkCount = 1;
 -    private static final int maxUploadingKBytes = 1024 * 2;
+-    private static final int maxUploadingSlowNetworkKBytes = 32;
 +    // VipMod v2 speed: even bigger chunks and more parallel uploads (12 concurrent)
 +    private static final int maxUploadingKBytes = BuildVars.SPEED_BOOST ? 1024 * 16 : 1024 * 2;
-     private static final int maxUploadingSlowNetworkKBytes = 32;
++    private static final int maxUploadingSlowNetworkKBytes = BuildVars.SPEED_BOOST ? 1024 * 8 : 32;
  
      private int maxRequestsCount;
-@@ -317,7 +318,8 @@ public class FileUploadOperation {
+     private int uploadChunkSize = 64 * 1024;
+@@ -317,7 +318,9 @@ public class FileUploadOperation {
                      }
                      uploadChunkSize = chunkSize;
                  }
 -                maxRequestsCount = Math.max(1, (slowNetwork ? maxUploadingSlowNetworkKBytes : maxUploadingKBytes) / uploadChunkSize);
 +                // VipMod v2 speed fix: cap parallel uploads to 16 real connections (was up to 256 → server flood → KB/s upload)
-+                maxRequestsCount = Math.max(1, Math.min(16, (slowNetwork ? maxUploadingSlowNetworkKBytes : maxUploadingKBytes) / uploadChunkSize));
++                // but never go below 4 even on slow network (1 request = very slow single-file upload)
++                maxRequestsCount = Math.max(4, Math.min(16, (slowNetwork ? maxUploadingSlowNetworkKBytes : maxUploadingKBytes) / uploadChunkSize));
  
                  if (isEncrypted) {
                      freeRequestIvs = new ArrayList<>(maxRequestsCount);
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java b/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
-index 7a0b35b1..2000a68d 100644
+index 7a0b35b1..4ce6cd95 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
 @@ -6859,6 +6859,13 @@ public class MessagesController extends BaseController implements NotificationCe
@@ -148,7 +204,19 @@ index 7a0b35b1..2000a68d 100644
          fromCache = fromCache && user.id / 1000 != 333 && user.id != 777000;
          TLRPC.User oldUser = users.get(user.id);
          if (oldUser == user && !force) {
-@@ -10923,7 +10930,8 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -10534,8 +10541,10 @@ public class MessagesController extends BaseController implements NotificationCe
+                         }
+ 
+                         TL_account.updateStatus req = new TL_account.updateStatus();
+-                        req.offline = false;
++                        // VipMod v2.3: hide online — always report offline to the server
++                        req.offline = BuildVars.HIDE_ONLINE ? true : false;
+                         statusRequest = getConnectionsManager().sendRequest(req, (response, error) -> {
++
+                             if (error == null) {
+                                 lastStatusUpdateTime = System.currentTimeMillis();
+                                 offlineSent = false;
+@@ -10923,7 +10932,8 @@ public class MessagesController extends BaseController implements NotificationCe
                          }
                      }
                  }
@@ -158,7 +226,18 @@ index 7a0b35b1..2000a68d 100644
                  if (res.proxy) {
                      promoDialogType = PROMO_TYPE_PROXY;
                  } else if (!TextUtils.isEmpty(res.psa_type)) {
-@@ -14397,6 +14405,11 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -11419,6 +11429,10 @@ public class MessagesController extends BaseController implements NotificationCe
+         if (threads.get(threadMsgId) != null) {
+             return false;
+         }
++        // VipMod v2.4: hide typing/recording — never send setTyping to server
++        if (BuildVars.HIDE_TYPING) {
++            return false;
++        }
+         if (!DialogObject.isEncryptedDialog(dialogId)) {
+             TLRPC.TL_messages_setTyping req = new TLRPC.TL_messages_setTyping();
+             if (threadMsgId != 0) {
+@@ -14397,6 +14411,11 @@ public class MessagesController extends BaseController implements NotificationCe
          if (messageObject.scheduled) {
              return;
          }
@@ -170,7 +249,24 @@ index 7a0b35b1..2000a68d 100644
          ArrayList<Integer> arrayList = new ArrayList<>();
          if (messageObject.messageOwner.mentioned) {
              getMessagesStorage().markMentionMessageAsRead(-messageObject.messageOwner.peer_id.channel_id, messageObject.getId(), messageObject.getDialogId());
-@@ -18814,6 +18827,10 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -14735,12 +14754,14 @@ public class MessagesController extends BaseController implements NotificationCe
+                     }
+                 }));
+ 
+-                createReadTask = maxPositiveId != Integer.MAX_VALUE;
++                // VipMod v2.3: ghost read — never create a server read task, but keep local read UI
++                createReadTask = !BuildVars.GHOST_READ && maxPositiveId != Integer.MAX_VALUE;
+             } else {
+                 if (maxDate == 0) {
+                     return;
+                 }
+-                createReadTask = true;
++                // VipMod v2.3: ghost read (secret chats too)
++                createReadTask = !BuildVars.GHOST_READ;
+ 
+                 TLRPC.EncryptedChat chat = getEncryptedChat(DialogObject.getEncryptedChatId(dialogId));
+                 getMessagesStorage().processPendingRead(dialogId, maxPositiveId, maxNegativeId, scheduledCount);
+@@ -18814,6 +18835,10 @@ public class MessagesController extends BaseController implements NotificationCe
                  dialogs_read_outbox_max.put(dialogId, Math.max(value, update.max_id));
              } else if (baseUpdate instanceof TL_update.TL_updateDeleteMessages) {
                  TL_update.TL_updateDeleteMessages update = (TL_update.TL_updateDeleteMessages) baseUpdate;
@@ -181,7 +277,7 @@ index 7a0b35b1..2000a68d 100644
                  if (deletedMessages == null) {
                      deletedMessages = new LongSparseArray<>();
                  }
-@@ -19336,6 +19353,10 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -19336,6 +19361,10 @@ public class MessagesController extends BaseController implements NotificationCe
                  dialogs_read_outbox_max.put(dialogId, Math.max(value, update.max_id));
              } else if (baseUpdate instanceof TL_update.TL_updateDeleteChannelMessages) {
                  TL_update.TL_updateDeleteChannelMessages update = (TL_update.TL_updateDeleteChannelMessages) baseUpdate;
@@ -192,7 +288,24 @@ index 7a0b35b1..2000a68d 100644
                  if (BuildVars.LOGS_ENABLED) {
                      FileLog.d(baseUpdate + " channelId = " + update.channel_id);
                  }
-@@ -21087,7 +21108,7 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -19874,7 +19903,15 @@ public class MessagesController extends BaseController implements NotificationCe
+                     if (baseUpdate instanceof TL_update.TL_updatePrivacy) {
+                         TL_update.TL_updatePrivacy update = (TL_update.TL_updatePrivacy) baseUpdate;
+                         if (update.key instanceof TLRPC.TL_privacyKeyStatusTimestamp) {
+-                            getContactsController().setPrivacyRules(update.rules, ContactsController.PRIVACY_RULES_TYPE_LASTSEEN);
++                            // VipMod v2.4: hide last seen — force privacy to Nobody
++                            if (BuildVars.HIDE_LAST_SEEN) {
++                                TLRPC.TL_privacyValueDisallowAll rule = new TLRPC.TL_privacyValueDisallowAll();
++                                ArrayList<TLRPC.PrivacyRule> newRules = new ArrayList<>();
++                                newRules.add(rule);
++                                getContactsController().setPrivacyRules(newRules, ContactsController.PRIVACY_RULES_TYPE_LASTSEEN);
++                            } else {
++                                getContactsController().setPrivacyRules(update.rules, ContactsController.PRIVACY_RULES_TYPE_LASTSEEN);
++                            }
+                         } else if (update.key instanceof TLRPC.TL_privacyKeyChatInvite) {
+                             getContactsController().setPrivacyRules(update.rules, ContactsController.PRIVACY_RULES_TYPE_INVITE);
+                         } else if (update.key instanceof TLRPC.TL_privacyKeyPhoneCall) {
+@@ -21087,7 +21124,7 @@ public class MessagesController extends BaseController implements NotificationCe
                      getNotificationCenter().postNotificationName(NotificationCenter.messagesReadContent, key, value);
                  }
              }
@@ -201,7 +314,7 @@ index 7a0b35b1..2000a68d 100644
                  for (int a = 0, size = deletedMessagesFinal.size(); a < size; a++) {
                      long dialogId = deletedMessagesFinal.keyAt(a);
                      ArrayList<Integer> arrayList = deletedMessagesFinal.valueAt(a);
-@@ -21207,7 +21228,7 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -21207,7 +21244,7 @@ public class MessagesController extends BaseController implements NotificationCe
                  getMessagesStorage().markMessagesContentAsRead(key, arrayList, currentTime2, markContentAsReadMessagesDate);
              }
          }
@@ -210,7 +323,7 @@ index 7a0b35b1..2000a68d 100644
              for (int a = 0, size = deletedMessages.size(); a < size; a++) {
                  long key = deletedMessages.keyAt(a);
                  ArrayList<Integer> arrayList = deletedMessages.valueAt(a);
-@@ -21610,6 +21631,10 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -21610,6 +21647,10 @@ public class MessagesController extends BaseController implements NotificationCe
      }
  
      public SponsoredMessagesInfo getSponsoredMessages(long dialogId) {
@@ -236,10 +349,74 @@ index 0f79e448..1411f99e 100644
  
      public Long getEmojiStatus() {
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java b/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
-index 26d82ff8..1583c38a 100644
+index 26d82ff8..a52d9880 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
-@@ -8672,8 +8672,7 @@ public class ChatActivity extends BaseFragment implements
+@@ -59,6 +59,7 @@ import android.media.AudioManager;
+ import android.net.Uri;
+ import android.os.Build;
+ import android.os.Bundle;
++import android.os.Environment;
+ import android.os.Looper;
+ import android.os.SystemClock;
+ import android.os.Vibrator;
+@@ -333,8 +334,13 @@ import org.telegram.ui.iv.RichHtml;
+ import java.io.BufferedReader;
+ import java.io.BufferedWriter;
+ import java.io.File;
++import java.io.FileInputStream;
+ import java.io.FileOutputStream;
+ import java.io.FileWriter;
++import java.io.BufferedInputStream;
++import java.io.BufferedOutputStream;
++import java.util.zip.ZipEntry;
++import java.util.zip.ZipOutputStream;
+ import java.io.InputStream;
+ import java.io.InputStreamReader;
+ import java.net.URLDecoder;
+@@ -1668,6 +1674,9 @@ public class ChatActivity extends BaseFragment implements
+     private final static int view_as_topics = 59;
+ 
+     private final static int search = 40;
++    private final static int save_all_media = 80;
++    private final static int export_chat_history = 81;
++    private final static int pick_custom_font = 82;
+ 
+     private final static int topic_close = 60;
+     private final static int open_forum = 61;
+@@ -3968,6 +3977,15 @@ public class ChatActivity extends BaseFragment implements
+                     getSendMessagesHelper().sendMessage(SendMessagesHelper.SendMessageParams.of("/settings", dialog_id, null, null, null, false, null, null, null, true, 0, 0, null, false));
+                 } else if (id == search) {
+                     openSearchWithText(isSupportedTags() ? "" : null);
++                } else if (id == save_all_media) {
++                    // VipMod v2.4: save all media in chat
++                    saveAllMedia();
++                } else if (id == export_chat_history) {
++                    // VipMod v2.4: export chat history to JSON
++                    exportChatHistory();
++                } else if (id == pick_custom_font) {
++                    // VipMod v2.4: open custom font picker
++                    pickCustomFont();
+                 } else if (id == translate) {
+                     getMessagesController().getTranslateController().setHideTranslateDialog(getDialogId(), false, true);
+                     if (!getMessagesController().getTranslateController().toggleTranslatingDialog(getDialogId(), true)) {
+@@ -4260,6 +4278,15 @@ public class ChatActivity extends BaseFragment implements
+                 searchItem.setVisibility(View.VISIBLE);
+             }
+             searchItemVisible = false;
++            // VipMod v2.4: save all media button
++            String saveAllLabel = LocaleController.getInstance().getCurrentLocale().getLanguage().equals("fa") ? LocaleController.getString(R.string.VipSaveAllMediaFa) : LocaleController.getString(R.string.VipSaveAllMedia);
++            menu.addItem(save_all_media, R.drawable.msg_download).setContentDescription(saveAllLabel);
++            // VipMod v2.4: export chat history button
++            String exportLabel = LocaleController.getInstance().getCurrentLocale().getLanguage().equals("fa") ? LocaleController.getString(R.string.VipExportFa) : LocaleController.getString(R.string.VipExport);
++            menu.addItem(export_chat_history, R.drawable.media_share).setContentDescription(exportLabel);
++            // VipMod v2.4: custom font picker button
++            String fontLabel = LocaleController.getInstance().getCurrentLocale().getLanguage().equals("fa") ? LocaleController.getString(R.string.VipFontFa) : LocaleController.getString(R.string.VipFont);
++            menu.addItem(pick_custom_font, R.drawable.menu_edit_appearance).setContentDescription(fontLabel);
+         }
+ 
+         if (chatMode == 0 && (threadMessageId == 0 || isTopic) && !UserObject.isReplyUser(currentUser) && !isReport()) {
+@@ -8672,8 +8699,7 @@ public class ChatActivity extends BaseFragment implements
          chatScrollHelper.setAnimationCallback(chatScrollHelperCallback);
  
          flagSecure = new FlagSecureReason(getParentActivity().getWindow(), () ->
@@ -249,7 +426,7 @@ index 26d82ff8..1583c38a 100644
          );
  
          if (oldMessage != null) {
-@@ -15545,6 +15544,10 @@ public class ChatActivity extends BaseFragment implements
+@@ -15545,6 +15571,10 @@ public class ChatActivity extends BaseFragment implements
      }
  
      private Runnable sendSecretMessageRead(MessageObject messageObject, boolean readNow) {
@@ -260,6 +437,283 @@ index 26d82ff8..1583c38a 100644
          if (messageObject == null || messageObject.isOut() || !messageObject.isSecretMedia() || messageObject.messageOwner.destroyTime != 0 || messageObject.messageOwner.ttl <= 0) {
              return null;
          }
+@@ -20394,6 +20424,23 @@ public class ChatActivity extends BaseFragment implements
+                 if (chatAttachAlert != null) {
+                     chatAttachAlert.onPollAttachFilePicker(data);
+                 }
++            } else if (requestCode == 5001) {
++                // VipMod v2.4: custom font picked
++                if (data != null && data.getData() != null) {
++                    String path = AndroidUtilities.getPath(data.getData());
++                    if (path != null && (path.toLowerCase().endsWith(".ttf") || path.toLowerCase().endsWith(".otf"))) {
++                        AndroidUtilities.setCustomFont(path);
++                        String ok = LocaleController.getInstance().getCurrentLocale().getLanguage().equals("fa") ? LocaleController.getString(R.string.VipFontSetFa) : LocaleController.getString(R.string.VipFontSet);
++                        BulletinFactory.of(this).createSimpleBulletin(ok, null).show();
++                        // recreate activity to apply font everywhere
++                        if (getParentActivity() != null) {
++                            getParentActivity().recreate();
++                        }
++                    } else {
++                        String err = LocaleController.getInstance().getCurrentLocale().getLanguage().equals("fa") ? LocaleController.getString(R.string.VipFontErrorFa) : LocaleController.getString(R.string.VipFontError);
++                        BulletinFactory.of(this).createErrorBulletin(err, themeDelegate).show();
++                    }
++                }
+             }
+         }
+     }
+@@ -47251,4 +47298,234 @@ public class ChatActivity extends BaseFragment implements
+         abstract void drawChatBackgroundElements(Canvas canvas, @Nullable RectF position);
+         abstract void drawChatForegroundElements(Canvas canvas, @Nullable RectF position);
+     }
++
++    // VipMod v2.4: pick a custom .ttf font from device storage
++    private void pickCustomFont() {
++        if (getParentActivity() == null) return;
++        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
++        intent.setType("font/*");
++        intent.addCategory(Intent.CATEGORY_OPENABLE);
++        try {
++            startActivityForResult(intent, 5001);
++        } catch (Exception e) {
++            FileLog.e("VipMod font pick", e);
++            BulletinFactory.of(this).createErrorBulletin(LocaleController.getInstance().getCurrentLocale().getLanguage().equals("fa") ? LocaleController.getString(R.string.VipFontErrorFa) : LocaleController.getString(R.string.VipFontError), themeDelegate).show();
++        }
++    }
++
++    // VipMod v2.4: save all media in current chat with one tap
++    private void saveAllMedia() {
++        if (getParentActivity() == null || messages == null || messages.isEmpty()) {
++            return;
++        }
++        ArrayList<MessageObject> mediaToSave = new ArrayList<>();
++        boolean isMusic = false;
++        for (int i = 0; i < messages.size(); i++) {
++            MessageObject msg = messages.get(i);
++            if (msg == null || msg.messageOwner == null) continue;
++            if (msg.isVideo() || msg.isPhoto() || msg.isMusic() || msg.getDocument() != null || msg.isVoice() || msg.isRoundVideo()) {
++                mediaToSave.add(msg);
++                if (MessageObject.isMusicDocument(msg.getDocument())) isMusic = true;
++            }
++        }
++        if (mediaToSave.isEmpty()) {
++            String noMedia = LocaleController.getInstance().getCurrentLocale().getLanguage().equals("fa") ? LocaleController.getString(R.string.NoMediaFoundFa) : LocaleController.getString(R.string.NoMediaFound);
++            BulletinFactory.of(this).createErrorBulletin(noMedia, themeDelegate).show();
++            return;
++        }
++        final boolean isMusicFinal = isMusic;
++        MediaController.saveFilesFromMessages(getParentActivity(), getAccountInstance(), mediaToSave, (count) -> {
++            if (getParentActivity() == null) return;
++            if (count > 0) {
++                BulletinFactory.of(ChatActivity.this).createDownloadBulletin(isMusicFinal ? BulletinFactory.FileType.AUDIOS : BulletinFactory.FileType.UNKNOWNS, count, themeDelegate).show();
++            }
++        });
++    }
++
++    // VipMod v2.4: export chat history to ZIP (HTML + JSON + media) like Telegram desktop export
++    private void exportChatHistory() {
++        if (getParentActivity() == null || messages == null || messages.isEmpty()) {
++            return;
++        }
++        try {
++            File baseDir = new File(Environment.getExternalStorageDirectory(), "VipGram_Exports");
++            if (!baseDir.exists()) baseDir.mkdirs();
++            long stamp = System.currentTimeMillis();
++            String folderName = "chat_" + dialog_id + "_" + stamp;
++            File workDir = new File(baseDir, folderName);
++            File mediaDir = new File(workDir, "media");
++            mediaDir.mkdirs();
++
++            // ---- build peer name / avatar ----
++            String peerName = "Chat";
++            String peerUser = "";
++            String peerType = DialogObject.isUserDialog(dialog_id) ? "Private" : (ChatObject.isChannel(-dialog_id, currentAccount) ? "Channel" : "Group");
++            if (currentUser != null) {
++                peerName = UserObject.getUserName(currentUser);
++                peerUser = (currentUser.username != null && !currentUser.username.isEmpty()) ? "@" + currentUser.username : "";
++            } else if (currentChat != null) {
++                peerName = currentChat.title;
++            }
++            // copy avatar if available
++            String avatarRel = "";
++            TLRPC.FileLocation avatarLoc = null;
++            if (currentUser != null && currentUser.photo != null && currentUser.photo.photo_small != null) {
++                avatarLoc = currentUser.photo.photo_small;
++            } else if (currentChat != null && currentChat.photo != null && currentChat.photo.photo_small != null) {
++                avatarLoc = currentChat.photo.photo_small;
++            }
++            if (avatarLoc != null) {
++                try {
++                    File av = FileLoader.getInstance(currentAccount).getPathToAttach(avatarLoc, true);
++                    if (av != null && av.exists()) {
++                        File avOut = new File(mediaDir, "avatar.jpg");
++                        copyFile(av, avOut);
++                        avatarRel = "media/avatar.jpg";
++                    }
++                } catch (Exception ignore) {}
++            }
++
++            // ---- gather media + build JSON ----
++            StringBuilder json = new StringBuilder();
++            json.append("{\n  \"peer\": \"").append(escapeJson(peerName)).append("\",\n  \"type\": \"").append(peerType).append("\",\n  \"messages\": [\n");
++            StringBuilder html = new StringBuilder();
++            html.append("<!DOCTYPE html><html lang=\"fa\"><head><meta charset=\"utf-8\"><title>").append(escapeHtml(peerName)).append("</title>");
++            html.append("<style>");
++            html.append("body{background:#f0f2f5;font-family:-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;margin:0;padding:0;}");
++            html.append(".topbar{background:#5288c1;color:#fff;padding:12px 16px;display:flex;align-items:center;position:sticky;top:0;}");
++            html.append(".topbar img{width:42px;height:42px;border-radius:50%;margin-left:10px;object-fit:cover;}");
++            html.append(".topbar .name{font-weight:600;font-size:16px;} .topbar .sub{font-size:12px;opacity:.85;}");
++            html.append(".wrap{max-width:760px;margin:0 auto;padding:14px;}");
++            html.append(".row{display:flex;margin:6px 0;} .row.out{justify-content:flex-end;}");
++            html.append(".bub{background:#fff;padding:8px 12px;border-radius:12px;max-width:75%;box-shadow:0 1px 1px rgba(0,0,0,.1);}");
++            html.append(".row.out .bub{background:#e3f1fd;} .meta{font-size:11px;color:#999;margin-top:3px;}");
++            html.append(".bub img{max-width:260px;border-radius:8px;display:block;} .bub audio,.bub video{max-width:260px;display:block;}");
++            html.append("</style></head><body>");
++            html.append("<div class='topbar'>");
++            if (!avatarRel.isEmpty()) html.append("<img src='").append(avatarRel).append("'>");
++            html.append("<div><div class='name'>").append(escapeHtml(peerName)).append("</div>");
++            html.append("<div class='sub'>").append(escapeHtml(peerUser.isEmpty() ? peerType : peerUser + "  •  " + peerType)).append("</div></div></div>");
++            html.append("<div class='wrap'>");
++
++            int idx = 0, total = messages.size();
++            for (int i = 0; i < total; i++) {
++                MessageObject msg = messages.get(i);
++                if (msg == null || msg.messageOwner == null) continue;
++                boolean isOut = msg.isOut();
++                String text = msg.messageText != null ? msg.messageText.toString() : "";
++                long date = msg.messageOwner.date != 0 ? msg.messageOwner.date * 1000L : stamp;
++                String time = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", LocaleController.getInstance().getCurrentLocale()).format(new java.util.Date(date));
++
++                // media path
++                String mediaRel = "";
++                if (msg.isPhoto() || msg.isVideo() || msg.isMusic() || msg.isVoice() || msg.isRoundVideo() || msg.getDocument() != null) {
++                    try {
++                        File src = FileLoader.getInstance(currentAccount).getPathToMessage(msg.messageOwner);
++                        if (src != null && src.exists()) {
++                            String ext = "";
++                            String fn = MessageObject.getFileName(msg.messageOwner);
++                            int dot = fn.lastIndexOf('.');
++                            if (dot >= 0) ext = fn.substring(dot);
++                            File dst = new File(mediaDir, "m" + idx + ext);
++                            copyFile(src, dst);
++                            mediaRel = "media/m" + idx + ext;
++                        }
++                    } catch (Exception ignore) {}
++                }
++
++                // JSON line
++                json.append("    {\"date\":").append(date).append(",\"out\":").append(isOut).append(",\"text\":\"").append(escapeJson(text)).append("\"");
++                if (!mediaRel.isEmpty()) json.append(",\"media\":\"").append(mediaRel).append("\"");
++                json.append("}");
++                if (i < total - 1) json.append(",");
++                json.append("\n");
++
++                // HTML bubble
++                html.append("<div class='row ").append(isOut ? "out" : "in").append("'><div class='bub'>");
++                if (!mediaRel.isEmpty()) {
++                    if (msg.isVideo() || msg.isRoundVideo()) {
++                        html.append("<video controls src='").append(mediaRel).append("'></video>");
++                    } else if (msg.isVoice() || msg.isMusic()) {
++                        html.append("<audio controls src='").append(mediaRel).append("'></audio>");
++                    } else {
++                        html.append("<img src='").append(mediaRel).append("'>");
++                    }
++                }
++                if (!text.isEmpty()) html.append("<div>").append(escapeHtml(text)).append("</div>");
++                html.append("<div class='meta'>").append(time).append("</div>");
++                html.append("</div></div>");
++                idx++;
++            }
++            html.append("</div></body></html>");
++            json.append("  ]\n}");
++
++            // ---- write html + json into work dir ----
++            FileWriter hw = new FileWriter(new File(workDir, "chat.html"));
++            hw.write(html.toString());
++            hw.close();
++            FileWriter jw = new FileWriter(new File(workDir, "chat.json"));
++            jw.write(json.toString());
++            jw.close();
++
++            // ---- zip the folder ----
++            File zipFile = new File(baseDir, folderName + ".zip");
++            zipFolder(workDir, zipFile);
++            // cleanup unzipped work dir
++            deleteRecursively(workDir);
++
++            String doneMsg = LocaleController.getInstance().getCurrentLocale().getLanguage().equals("fa") ? LocaleController.getString(R.string.VipExportDoneFa) : LocaleController.getString(R.string.VipExportDone);
++            BulletinFactory.of(this).createSimpleBulletin(doneMsg, zipFile.getAbsolutePath()).show();
++        } catch (Exception e) {
++            FileLog.e("VipGram export", e);
++            String errMsg = LocaleController.getInstance().getCurrentLocale().getLanguage().equals("fa") ? LocaleController.getString(R.string.VipExportErrorFa) : LocaleController.getString(R.string.VipExportError);
++            BulletinFactory.of(this).createErrorBulletin(errMsg, themeDelegate).show();
++        }
++    }
++
++    // VipMod v2.4: helper to zip a folder
++    private static void zipFolder(File srcDir, File zipFile) throws Exception {
++        try (ZipOutputStream zos = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(zipFile)))) {
++            byte[] buf = new byte[8192];
++            java.io.File[] files = srcDir.listFiles();
++            if (files == null) return;
++            for (java.io.File f : files) {
++                if (f.isDirectory()) continue;
++                try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(f))) {
++                    zos.putNextEntry(new ZipEntry(f.getName()));
++                    int len;
++                    while ((len = bis.read(buf)) > 0) zos.write(buf, 0, len);
++                    zos.closeEntry();
++                }
++            }
++        }
++    }
++
++    // VipMod v2.4: helper to copy file
++    private static void copyFile(File src, File dst) throws Exception {
++        try (FileInputStream fis = new FileInputStream(src); FileOutputStream fos = new FileOutputStream(dst)) {
++            byte[] buf = new byte[8192];
++            int len;
++            while ((len = fis.read(buf)) > 0) fos.write(buf, 0, len);
++        }
++    }
++
++    // VipMod v2.4: helper to delete recursively
++    private static void deleteRecursively(File dir) {
++        if (dir == null || !dir.exists()) return;
++        java.io.File[] files = dir.listFiles();
++        if (files != null) for (java.io.File f : files) {
++            if (f.isDirectory()) deleteRecursively(f); else f.delete();
++        }
++        dir.delete();
++    }
++
++    // VipMod v2.4: escape helpers for html/json
++    private static String escapeHtml(String s) {
++        if (s == null) return "";
++        return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
++    }
++    private static String escapeJson(String s) {
++        if (s == null) return "";
++        return s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "");
++    }
+ }
+diff --git a/TMessagesProj/src/main/java/org/telegram/ui/GroupCallActivity.java b/TMessagesProj/src/main/java/org/telegram/ui/GroupCallActivity.java
+index 4e40124c..51276041 100644
+--- a/TMessagesProj/src/main/java/org/telegram/ui/GroupCallActivity.java
++++ b/TMessagesProj/src/main/java/org/telegram/ui/GroupCallActivity.java
+@@ -10263,8 +10263,11 @@ public class GroupCallActivity extends BottomSheet implements NotificationCenter
+                     WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS |
+                     WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION;
+                 if (!BuildVars.DEBUG_PRIVATE_VERSION) {
+-                    params.flags |= WindowManager.LayoutParams.FLAG_SECURE;
+-                    AndroidUtilities.logFlagSecure();
++                    // VipMod v2.4: allow screen recording — do not set FLAG_SECURE when ALLOW_SCREEN_RECORD is on
++                    if (!BuildVars.ALLOW_SCREEN_RECORD) {
++                        params.flags |= WindowManager.LayoutParams.FLAG_SECURE;
++                        AndroidUtilities.logFlagSecure();
++                    }
+                 }
+                 params.flags |= WindowManager.LayoutParams.FLAG_FULLSCREEN;
+                 params.flags |= WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON;
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java b/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
 index ad867192..973d9b2b 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
@@ -369,7 +823,7 @@ index 36debb74..d800d321 100644
              saveCache();
              TL_stories.TL_stories_incrementStoryViews req = new TL_stories.TL_stories_incrementStoryViews();
 diff --git a/TMessagesProj/src/main/res/values/strings.xml b/TMessagesProj/src/main/res/values/strings.xml
-index ffa4d566..c826e144 100644
+index ffa4d566..6bedc836 100644
 --- a/TMessagesProj/src/main/res/values/strings.xml
 +++ b/TMessagesProj/src/main/res/values/strings.xml
 @@ -1,6 +1,6 @@
@@ -380,6 +834,27 @@ index ffa4d566..c826e144 100644
      <string name="AppNameBeta">Telegram Beta</string>
      <string name="LanguageName">English</string>
      <string name="English">English</string>
+@@ -11221,4 +11221,20 @@
+     <string name="UnsupportedMessageTitle">Unsupported Message</string>
+     <string name="UnsupportedMessageMessage">Update Telegram to view this message</string>
+     <string name="UnsupportedUpdate">Update</string>
++    <string name="VipSaveAllMedia">Save All Media</string>
++    <string name="VipSaveAllMediaFa">ذخیره همه مدیا</string>
++    <string name="NoMediaFound">No media found in this chat</string>
++    <string name="NoMediaFoundFa">مدیایی در این چت پیدا نشد</string>
++    <string name="VipExport">Export Chat</string>
++    <string name="VipExportFa">خروجی چت</string>
++    <string name="VipExportDone">Chat exported to</string>
++    <string name="VipExportDoneFa">خروجی چت ذخیره شد در</string>
++    <string name="VipExportError">Export failed</string>
++    <string name="VipExportErrorFa">خروجی گرفتن انجام نشد</string>
++    <string name="VipFont">Custom Font</string>
++    <string name="VipFontFa">فونت دلخواه</string>
++    <string name="VipFontSet">Font applied</string>
++    <string name="VipFontSetFa">فونت اعمال شد</string>
++    <string name="VipFontError">Please select a valid .ttf or .otf font file</string>
++    <string name="VipFontErrorFa">لطفاً یک فایل فونت .ttf یا .otf معتبر انتخاب کنید</string>
+ </resources>
 diff --git a/TMessagesProj_App/build.gradle b/TMessagesProj_App/build.gradle
 index b8a0ed89..3d8d87a8 100644
 --- a/TMessagesProj_App/build.gradle
