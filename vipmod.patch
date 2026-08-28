@@ -160,7 +160,7 @@ index 4d0dac30..60986b3e 100644
          maxCdnParts = (int) (FileLoader.DEFAULT_MAX_FILE_SIZE / downloadChunkSizeBig);
      }
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java b/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
-index b2ebccd7..c9169255 100644
+index b2ebccd7..26c9c255 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
 @@ -41,8 +41,9 @@ public class FileUploadOperation {
@@ -175,14 +175,29 @@ index b2ebccd7..c9169255 100644
  
      private int maxRequestsCount;
      private int uploadChunkSize = 64 * 1024;
-@@ -317,7 +318,9 @@ public class FileUploadOperation {
+@@ -309,7 +310,12 @@ public class FileUploadOperation {
+                 if (AccountInstance.getInstance(currentAccount).getUserConfig().isPremium() && totalFileSize > FileLoader.DEFAULT_MAX_FILE_SIZE) {
+                     maxUploadParts = MessagesController.getInstance(currentAccount).uploadMaxFilePartsPremium;
+                 }
+-                uploadChunkSize = (int) Math.max(slowNetwork ? minUploadChunkSlowNetworkSize : minUploadChunkSize, (totalFileSize + 1024L * maxUploadParts - 1) / (1024L * maxUploadParts));
++                // VipMod v2.3: big stable chunks to avoid speed oscillation on uploads
++                // default 128KB chunks cause many small handshakes → speed drops to 200KB/s;
++                // use larger chunks (min 512KB, scaled for huge files) for steadier throughput
++                long idealChunk = (totalFileSize + 1024L * maxUploadParts - 1) / (1024L * maxUploadParts);
++                uploadChunkSize = (int) Math.max(512, Math.min(1024 * 4, idealChunk));
++                // round down to power of 2 for alignment (64,128,256,512,1024,2048...)
+                 if (1024 % uploadChunkSize != 0) {
+                     int chunkSize = 64;
+                     while (uploadChunkSize > chunkSize) {
+@@ -317,7 +323,10 @@ public class FileUploadOperation {
                      }
                      uploadChunkSize = chunkSize;
                  }
 -                maxRequestsCount = Math.max(1, (slowNetwork ? maxUploadingSlowNetworkKBytes : maxUploadingKBytes) / uploadChunkSize);
-+                // VipMod v2 speed fix: cap parallel uploads to 16 real connections (was up to 256 → server flood → KB/s upload)
-+                // but never go below 4 even on slow network (1 request = very slow single-file upload)
-+                maxRequestsCount = Math.max(4, Math.min(16, (slowNetwork ? maxUploadingSlowNetworkKBytes : maxUploadingKBytes) / uploadChunkSize));
++                // VipMod v2.3: cap parallel uploads — 4..8 connections is enough to saturate
++                // any link up to ~50Mbps without the overhead of 16 simultaneous TLS handshakes
++                // (on a slow 2Mbps line, 16 connections each get ~12KB/s and stall badly)
++                maxRequestsCount = Math.max(4, Math.min(8, (slowNetwork ? maxUploadingSlowNetworkKBytes : maxUploadingKBytes) / uploadChunkSize));
  
                  if (isEncrypted) {
                      freeRequestIvs = new ArrayList<>(maxRequestsCount);
