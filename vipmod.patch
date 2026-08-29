@@ -48,11 +48,127 @@ index 32d590e8..b86928cd 100644
                  lastPingTime = now;
                  sendPing(datacenter, false);
              }
+diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/AndroidUtilities.java b/TMessagesProj/src/main/java/org/telegram/messenger/AndroidUtilities.java
+index 5a26f49b..036a0b9e 100644
+--- a/TMessagesProj/src/main/java/org/telegram/messenger/AndroidUtilities.java
++++ b/TMessagesProj/src/main/java/org/telegram/messenger/AndroidUtilities.java
+@@ -256,13 +256,93 @@ public class AndroidUtilities {
+     public final static String TYPEFACE_ROBOTO_MONO = "fonts/rmono.ttf";
+     public final static String TYPEFACE_MERRIWEATHER_BOLD = "fonts/mw_bold.ttf";
+ 
++    // ── VipMod: Custom Font support ───────────────────────────────
++    // User-selected font applied across the whole app (regular/bold/italic derived).
++    // Emoji, icon and monospace fonts are deliberately excluded so nothing breaks.
++    public static Typeface customFontRegular = null;
++    public static Typeface customFontBold = null;
++    public static Typeface customFontItalic = null;
++    public static Typeface customFontBoldItalic = null;
++    public static String customFontPath = null;
++    private static boolean customFontLoaded = false;
++
++    public static boolean isCustomFontAsset(String assetPath) {
++        if (assetPath == null) return false;
++        String p = assetPath.toLowerCase();
++        // never override emoji, numeric or monospace glyph fonts
++        return !(p.contains("emoji") || p.contains("num") || p.contains("mono"));
++    }
++
++    public static void loadCustomFont() {
++        customFontLoaded = true;
++        try {
++            SharedPreferences prefs = ApplicationLoader.applicationContext.getSharedPreferences("mainconfig", Activity.MODE_PRIVATE);
++            String path = prefs.getString("vip_custom_font_path", null);
++            setCustomFont(path);
++        } catch (Throwable e) {
++            FileLog.e(e);
++        }
++    }
++
++    public static void setCustomFont(String path) {
++        try {
++            if (path == null || path.length() == 0) {
++                customFontPath = null;
++                customFontRegular = customFontBold = customFontItalic = customFontBoldItalic = null;
++            } else {
++                File f = new File(path);
++                if (!f.exists()) {
++                    customFontPath = null;
++                    customFontRegular = customFontBold = customFontItalic = customFontBoldItalic = null;
++                } else {
++                    Typeface base = Typeface.createFromFile(f);
++                    customFontRegular = base;
++                    customFontBold = Typeface.create(base, Typeface.BOLD);
++                    customFontItalic = Typeface.create(base, Typeface.ITALIC);
++                    customFontBoldItalic = Typeface.create(base, Typeface.BOLD_ITALIC);
++                    customFontPath = path;
++                }
++            }
++            SharedPreferences prefs = ApplicationLoader.applicationContext.getSharedPreferences("mainconfig", Activity.MODE_PRIVATE);
++            if (customFontPath == null) {
++                prefs.edit().remove("vip_custom_font_path").apply();
++            } else {
++                prefs.edit().putString("vip_custom_font_path", customFontPath).apply();
++            }
++            // clear typeface cache so new font takes effect immediately
++            synchronized (typefaceCache) {
++                typefaceCache.clear();
++            }
++            mediumTypeface = null;
++        } catch (Throwable e) {
++            FileLog.e(e);
++            customFontPath = null;
++            customFontRegular = customFontBold = customFontItalic = customFontBoldItalic = null;
++        }
++    }
++
++    private static Typeface pickCustomTypeface(String assetPath) {
++        if (customFontRegular == null) return null;
++        if (assetPath == null) return customFontRegular;
++        String p = assetPath.toLowerCase();
++        boolean bold = p.contains("medium") || p.contains("bold");
++        boolean italic = p.contains("italic");
++        if (bold && italic) return customFontBoldItalic != null ? customFontBoldItalic : customFontBold;
++        if (bold) return customFontBold != null ? customFontBold : customFontRegular;
++        if (italic) return customFontItalic != null ? customFontItalic : customFontRegular;
++        return customFontRegular;
++    }
++
+     public static Typeface mediumTypeface;
+     public static ThreadLocal<byte[]> readBufferLocal = new ThreadLocal<>();
+     public static ThreadLocal<byte[]> bufferLocal = new ThreadLocal<>();
+ 
+     public static Typeface bold() {
+         if (mediumTypeface == null) {
+-            if (SharedConfig.useSystemBoldFont && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
++            // VipMod: prefer the user's custom font (bold variant) when set
++            if (customFontRegular != null) {
++                mediumTypeface = customFontBold != null ? customFontBold : customFontRegular;
++            } else if (SharedConfig.useSystemBoldFont && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                 mediumTypeface = Typeface.create(null, 500, false);
+             } else {
+                 mediumTypeface = getTypeface(TYPEFACE_ROBOTO_MEDIUM);
+@@ -2391,6 +2471,16 @@ public class AndroidUtilities {
+     }
+ 
+     public static Typeface getTypeface(String assetPath) {
++        // VipMod: custom font override — applies everywhere except emoji/num/mono assets
++        if (!customFontLoaded) {
++            loadCustomFont();
++        }
++        if (customFontRegular != null && isCustomFontAsset(assetPath)) {
++            Typeface custom = pickCustomTypeface(assetPath);
++            if (custom != null) {
++                return custom;
++            }
++        }
+         synchronized (typefaceCache) {
+             if (!typefaceCache.containsKey(assetPath)) {
+                 try {
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java b/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
-index 4ed7e649..28ec49e2 100644
+index 4ed7e649..3aa39a30 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
-@@ -29,6 +29,19 @@ public class BuildVars {
+@@ -29,6 +29,21 @@ public class BuildVars {
      public static int APP_ID = 4;
      public static String APP_HASH = "014b35b6184100b085b0d0572f9b5103";
  
@@ -68,6 +184,8 @@ index 4ed7e649..28ec49e2 100644
 +    public static boolean GHOST_STORY = true;
 +    // VipMod v2: show premium look locally (icon + badge only, no server unlock)
 +    public static boolean LOCAL_PREMIUM_LOOK = true;
++    // VipMod: custom font picker in Settings → applies app-wide (emoji/icons excluded)
++    public static boolean CUSTOM_FONT = true;
 +
      // SafetyNet key for Google Identity SDK, set it to empty to disable
      public static String SAFETYNET_KEY = "AIzaSyDqt8P-7F7CPCseMkOiVRgb1LY8RN1bvH8";
@@ -368,6 +486,234 @@ index 36debb74..d800d321 100644
              seenStories.add(storyId);
              saveCache();
              TL_stories.TL_stories_incrementStoryViews req = new TL_stories.TL_stories_incrementStoryViews();
+diff --git a/TMessagesProj/src/main/java/org/telegram/ui/ThemeActivity.java b/TMessagesProj/src/main/java/org/telegram/ui/ThemeActivity.java
+index cc144999..ba9b1c3c 100644
+--- a/TMessagesProj/src/main/java/org/telegram/ui/ThemeActivity.java
++++ b/TMessagesProj/src/main/java/org/telegram/ui/ThemeActivity.java
+@@ -17,6 +17,7 @@ import android.app.Activity;
+ import android.app.Dialog;
+ import android.app.TimePickerDialog;
+ import android.content.Context;
++import android.database.Cursor;
+ import android.content.DialogInterface;
+ import android.content.Intent;
+ import android.content.SharedPreferences;
+@@ -44,6 +45,7 @@ import android.widget.FrameLayout;
+ import android.widget.ImageView;
+ import android.widget.LinearLayout;
+ import android.widget.TextView;
++import android.widget.Toast;
+ 
+ import androidx.annotation.Keep;
+ import androidx.annotation.NonNull;
+@@ -54,6 +56,7 @@ import androidx.recyclerview.widget.RecyclerView;
+ 
+ import org.telegram.messenger.AndroidUtilities;
+ import org.telegram.messenger.ApplicationLoader;
++import org.telegram.messenger.BuildVars;
+ import org.telegram.messenger.FileLoader;
+ import org.telegram.messenger.FileLog;
+ import org.telegram.messenger.LocaleController;
+@@ -115,6 +118,7 @@ import org.telegram.ui.web.WebBrowserSettings;
+ 
+ import java.io.File;
+ import java.io.FileOutputStream;
++import java.io.InputStream;
+ import java.util.ArrayList;
+ import java.util.Calendar;
+ import java.util.Collections;
+@@ -151,6 +155,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
+     private int textSizeHeaderRow;
+     @Keep
+     private int textSizeRow;
++    private int customFontRow;
+     private int settingsRow;
+     private int directShareRow;
+     @Keep
+@@ -559,6 +564,7 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
+         automaticBrightnessRow = -1;
+         automaticBrightnessInfoRow = -1;
+         textSizeHeaderRow = -1;
++        customFontRow = -1;
+         themeHeaderRow = -1;
+         bubbleRadiusHeaderRow = -1;
+         bubbleRadiusRow = -1;
+@@ -656,6 +662,9 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
+         } else if (currentType == THEME_TYPE_BASIC) {
+             textSizeHeaderRow = rowCount++;
+             textSizeRow = rowCount++;
++            if (BuildVars.CUSTOM_FONT) {
++                customFontRow = rowCount++;
++            }
+             backgroundRow = rowCount++;
+             changeUserColor = rowCount++;
+             newThemeInfoRow = rowCount++;
+@@ -1116,6 +1125,36 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
+                 }
+             } else if (position == backgroundRow) {
+                 presentFragment(new WallpapersListActivity(WallpapersListActivity.TYPE_ALL));
++            } else if (position == customFontRow) {
++                if (getParentActivity() == null) {
++                    return;
++                }
++                boolean fa = LocaleController.getInstance().getCurrentLocale().getLanguage().equals("fa");
++                if (AndroidUtilities.customFontPath != null) {
++                    // font already set → offer change or reset
++                    AlertDialog.Builder builder = new AlertDialog.Builder(getParentActivity());
++                    builder.setTitle(fa ? "فونت دلخواه" : "Custom Font");
++                    builder.setItems(new CharSequence[]{
++                            fa ? "انتخاب فونت جدید" : "Choose another font",
++                            fa ? "بازگشت به فونت پیش‌فرض" : "Reset to default font"
++                    }, (dlg, which) -> {
++                        if (which == 0) {
++                            openFontPicker();
++                        } else {
++                            AndroidUtilities.setCustomFont(null);
++                            Toast.makeText(getParentActivity(), fa ? "فونت پیش‌فرض بازگردانی شد" : "Default font restored", Toast.LENGTH_SHORT).show();
++                            AndroidUtilities.runOnUIThread(() -> {
++                                if (getParentActivity() != null) {
++                                    getParentActivity().recreate();
++                                }
++                            }, 300);
++                        }
++                    });
++                    builder.setNegativeButton(getString(R.string.Cancel), null);
++                    showDialog(builder.create());
++                } else {
++                    openFontPicker();
++                }
+             } else if (position == changeUserColor) {
+                 presentFragment(new PeerColorActivity(0).setOnApplied(this));
+             } else if (position == sendByEnterRow) {
+@@ -1810,6 +1849,104 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
+         locationManager.removeUpdates(networkLocationListener);
+     }
+ 
++    // ── VipMod: Custom Font picker ───────────────────────────────
++    private void openFontPicker() {
++        try {
++            Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
++            intent.setType("*/*");
++            intent.addCategory(Intent.CATEGORY_OPENABLE);
++            boolean fa = LocaleController.getInstance().getCurrentLocale().getLanguage().equals("fa");
++            startActivityForResult(Intent.createChooser(intent, fa ? "انتخاب فایل فونت (ttf/otf)" : "Select font file (ttf/otf)"), 9701);
++        } catch (Exception e) {
++            FileLog.e(e);
++        }
++    }
++
++    @Override
++    public void onActivityResultFragment(int requestCode, int resultCode, Intent data) {
++        if (requestCode == 9701) {
++            boolean fa = LocaleController.getInstance().getCurrentLocale().getLanguage().equals("fa");
++            if (resultCode != Activity.RESULT_OK || data == null || data.getData() == null) {
++                return;
++            }
++            try {
++                Uri uri = data.getData();
++                String name = null;
++                try {
++                    Cursor c = ApplicationLoader.applicationContext.getContentResolver().query(uri, null, null, null, null);
++                    if (c != null) {
++                        int idx = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME);
++                        if (idx >= 0 && c.moveToFirst()) {
++                            name = c.getString(idx);
++                        }
++                        c.close();
++                    }
++                } catch (Throwable ignore) {}
++                if (name == null) {
++                    name = uri.getLastPathSegment();
++                }
++                String lower = name == null ? "" : name.toLowerCase();
++                if (!lower.endsWith(".ttf") && !lower.endsWith(".otf")) {
++                    if (getParentActivity() != null) {
++                        Toast.makeText(getParentActivity(), fa ? "فقط فایل ttf یا otf مجاز است" : "Only .ttf or .otf files are supported", Toast.LENGTH_SHORT).show();
++                    }
++                    return;
++                }
++                // copy the picked font into app storage so it survives across restarts
++                File dir = new File(ApplicationLoader.getFilesDirFixed(), "vipfonts");
++                dir.mkdirs();
++                File dst = new File(dir, "custom_" + System.currentTimeMillis() + (lower.endsWith(".otf") ? ".otf" : ".ttf"));
++                InputStream in = ApplicationLoader.applicationContext.getContentResolver().openInputStream(uri);
++                FileOutputStream out = new FileOutputStream(dst);
++                byte[] buf = new byte[8192];
++                int r;
++                while ((r = in.read(buf)) > 0) {
++                    out.write(buf, 0, r);
++                }
++                out.close();
++                in.close();
++                // sanity check: can Android actually parse this font?
++                try {
++                    android.graphics.Typeface test = android.graphics.Typeface.createFromFile(dst);
++                    if (test == null) {
++                        throw new Exception("invalid font");
++                    }
++                } catch (Throwable badFont) {
++                    dst.delete();
++                    if (getParentActivity() != null) {
++                        Toast.makeText(getParentActivity(), fa ? "این فایل فونت معتبر نیست" : "This font file is not valid", Toast.LENGTH_SHORT).show();
++                    }
++                    return;
++                }
++                // remove any previously stored font files to keep storage clean
++                try {
++                    File[] old = dir.listFiles();
++                    if (old != null) {
++                        for (File f : old) {
++                            if (!f.equals(dst)) {
++                                f.delete();
++                            }
++                        }
++                    }
++                } catch (Throwable ignore) {}
++                AndroidUtilities.setCustomFont(dst.getAbsolutePath());
++                if (getParentActivity() != null) {
++                    Toast.makeText(getParentActivity(), fa ? "فونت اعمال شد" : "Font applied", Toast.LENGTH_SHORT).show();
++                }
++                AndroidUtilities.runOnUIThread(() -> {
++                    if (getParentActivity() != null) {
++                        getParentActivity().recreate();
++                    }
++                }, 400);
++            } catch (Exception e) {
++                FileLog.e(e);
++                if (getParentActivity() != null) {
++                    Toast.makeText(getParentActivity(), fa ? "خطا در اعمال فونت" : "Failed to apply font", Toast.LENGTH_SHORT).show();
++                }
++            }
++        }
++    }
++
+     private String getLocationSunString() {
+         int currentHour = Theme.autoNightSunriseTime / 60;
+         int currentMinute = (Theme.autoNightSunriseTime - currentHour * 60);
+@@ -2519,6 +2656,13 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
+                     } else if (position == bluetoothScoRow) {
+                         cell.setTextAndValue(getString(R.string.MicrophoneForVoiceMessages), getString(SharedConfig.recordViaSco ? R.string.MicrophoneForVoiceMessagesSco : R.string.MicrophoneForVoiceMessagesBuiltIn), updateRecordViaSco, false);
+                         updateRecordViaSco = false;
++                    } else if (position == customFontRow) {
++                        boolean fa = LocaleController.getInstance().getCurrentLocale().getLanguage().equals("fa");
++                        String title = fa ? "فونت دلخواه" : "Custom Font";
++                        String value = AndroidUtilities.customFontPath != null
++                                ? (fa ? "فعال" : "On")
++                                : (fa ? "پیش‌فرض" : "Default");
++                        cell.setTextAndValue(title, value, false);
+                     }
+                     break;
+                 }
+@@ -2733,7 +2877,8 @@ public class ThemeActivity extends BaseFragment implements NotificationCenter.No
+             if (position == scheduleFromRow || position == distanceRow ||
+                     position == scheduleToRow || position == scheduleUpdateLocationRow ||
+                     position == contactsReimportRow || position == contactsSortRow ||
+-                    position == bluetoothScoRow || position == searchEngineRow) {
++                    position == bluetoothScoRow || position == searchEngineRow ||
++                    position == customFontRow) {
+                 return TYPE_TEXT_SETTING;
+             } else if (position == automaticBrightnessInfoRow || position == scheduleLocationInfoRow || position == swipeGestureInfoRow || position == stickersInfoRow || position == liteModeInfoRow) {
+                 return TYPE_TEXT_INFO_PRIVACY;
 diff --git a/TMessagesProj/src/main/res/values/strings.xml b/TMessagesProj/src/main/res/values/strings.xml
 index ffa4d566..c826e144 100644
 --- a/TMessagesProj/src/main/res/values/strings.xml
