@@ -49,10 +49,10 @@ index 32d590e8..b86928cd 100644
                  sendPing(datacenter, false);
              }
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/AndroidUtilities.java b/TMessagesProj/src/main/java/org/telegram/messenger/AndroidUtilities.java
-index 5a26f49b..036a0b9e 100644
+index 5a26f49b..788e6b7b 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/AndroidUtilities.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/AndroidUtilities.java
-@@ -256,13 +256,93 @@ public class AndroidUtilities {
+@@ -256,13 +256,208 @@ public class AndroidUtilities {
      public final static String TYPEFACE_ROBOTO_MONO = "fonts/rmono.ttf";
      public final static String TYPEFACE_MERRIWEATHER_BOLD = "fonts/mw_bold.ttf";
  
@@ -114,10 +114,125 @@ index 5a26f49b..036a0b9e 100644
 +                typefaceCache.clear();
 +            }
 +            mediumTypeface = null;
++            // VipMod: also override the SYSTEM default typefaces via reflection.
++            // This is what makes the font apply to message text and every view
++            // that never calls setTypeface() explicitly (Graph Messenger approach).
++            applySystemFontOverride();
 +        } catch (Throwable e) {
 +            FileLog.e(e);
 +            customFontPath = null;
 +            customFontRegular = customFontBold = customFontItalic = customFontBoldItalic = null;
++        }
++    }
++
++    // Keeps the untouched original system defaults so "reset to default" really works.
++    private static Typeface originalDefault = null;
++    private static Typeface originalDefaultBold = null;
++    private static Typeface originalSansSerif = null;
++    private static Typeface originalSerif = null;
++
++    private static void setStaticTypefaceField(String fieldName, Typeface value) {
++        try {
++            java.lang.reflect.Field field = Typeface.class.getDeclaredField(fieldName);
++            field.setAccessible(true);
++            field.set(null, value);
++        } catch (Throwable ignore) {
++            // field missing on this Android version — non fatal
++        }
++    }
++
++    private static Typeface getStaticTypefaceField(String fieldName) {
++        try {
++            java.lang.reflect.Field field = Typeface.class.getDeclaredField(fieldName);
++            field.setAccessible(true);
++            return (Typeface) field.get(null);
++        } catch (Throwable ignore) {
++            return null;
++        }
++    }
++
++    /**
++     * Replaces Typeface.DEFAULT / DEFAULT_BOLD / SANS_SERIF / SERIF and the internal
++     * sSystemFontMap entries with the user's font, so that every TextView / TextPaint
++     * that relies on the platform default picks it up automatically.
++     * Monospace is intentionally left alone (code blocks must stay monospace).
++     */
++    @SuppressWarnings("unchecked")
++    public static void applySystemFontOverride() {
++        try {
++            // snapshot the pristine defaults exactly once
++            if (originalDefault == null) {
++                originalDefault = getStaticTypefaceField("DEFAULT");
++                originalDefaultBold = getStaticTypefaceField("DEFAULT_BOLD");
++                originalSansSerif = getStaticTypefaceField("SANS_SERIF");
++                originalSerif = getStaticTypefaceField("SERIF");
++                if (originalDefault == null) {
++                    originalDefault = Typeface.DEFAULT;
++                }
++                if (originalDefaultBold == null) {
++                    originalDefaultBold = Typeface.DEFAULT_BOLD;
++                }
++                if (originalSansSerif == null) {
++                    originalSansSerif = Typeface.SANS_SERIF;
++                }
++                if (originalSerif == null) {
++                    originalSerif = Typeface.SERIF;
++                }
++            }
++
++            Typeface reg = customFontRegular != null ? customFontRegular : originalDefault;
++            Typeface bld = customFontBold != null ? customFontBold : originalDefaultBold;
++            Typeface sans = customFontRegular != null ? customFontRegular : originalSansSerif;
++            Typeface serif = customFontRegular != null ? customFontRegular : originalSerif;
++
++            setStaticTypefaceField("DEFAULT", reg);
++            setStaticTypefaceField("DEFAULT_BOLD", bld);
++            setStaticTypefaceField("SANS_SERIF", sans);
++            setStaticTypefaceField("SERIF", serif);
++
++            // Android 9+ resolves font family names through this static map.
++            try {
++                java.lang.reflect.Field mapField = Typeface.class.getDeclaredField("sSystemFontMap");
++                mapField.setAccessible(true);
++                Object mapObj = mapField.get(null);
++                if (mapObj instanceof java.util.Map) {
++                    java.util.Map<String, Typeface> map = (java.util.Map<String, Typeface>) mapObj;
++                    if (customFontRegular != null) {
++                        map.put("sans-serif", customFontRegular);
++                        map.put("sans-serif-medium", customFontBold != null ? customFontBold : customFontRegular);
++                        map.put("sans-serif-light", customFontRegular);
++                        map.put("sans-serif-thin", customFontRegular);
++                        map.put("sans-serif-condensed", customFontRegular);
++                        map.put("serif", customFontRegular);
++                        map.put("default", customFontRegular);
++                        map.put("roboto", customFontRegular);
++                    } else {
++                        if (originalSansSerif != null) {
++                            map.put("sans-serif", originalSansSerif);
++                            map.put("sans-serif-medium", originalSansSerif);
++                            map.put("sans-serif-light", originalSansSerif);
++                            map.put("sans-serif-thin", originalSansSerif);
++                            map.put("sans-serif-condensed", originalSansSerif);
++                            map.put("roboto", originalSansSerif);
++                        }
++                        if (originalSerif != null) {
++                            map.put("serif", originalSerif);
++                        }
++                        if (originalDefault != null) {
++                            map.put("default", originalDefault);
++                        }
++                    }
++                }
++            } catch (Throwable ignore) {
++                // sSystemFontMap not present / blocked — DEFAULT override above still applies
++            }
++
++            // Theme paints are cached; drop them so they get rebuilt with the new typeface.
++            try {
++                org.telegram.ui.ActionBar.Theme.chat_msgTextPaint = null;
++            } catch (Throwable ignore) {}
++        } catch (Throwable e) {
++            FileLog.e(e);
 +        }
 +    }
 +
@@ -147,7 +262,7 @@ index 5a26f49b..036a0b9e 100644
                  mediumTypeface = Typeface.create(null, 500, false);
              } else {
                  mediumTypeface = getTypeface(TYPEFACE_ROBOTO_MEDIUM);
-@@ -2391,6 +2471,16 @@ public class AndroidUtilities {
+@@ -2391,6 +2586,16 @@ public class AndroidUtilities {
      }
  
      public static Typeface getTypeface(String assetPath) {
@@ -164,6 +279,25 @@ index 5a26f49b..036a0b9e 100644
          synchronized (typefaceCache) {
              if (!typefaceCache.containsKey(assetPath)) {
                  try {
+diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/ApplicationLoader.java b/TMessagesProj/src/main/java/org/telegram/messenger/ApplicationLoader.java
+index dc63e5e2..8a654f6d 100644
+--- a/TMessagesProj/src/main/java/org/telegram/messenger/ApplicationLoader.java
++++ b/TMessagesProj/src/main/java/org/telegram/messenger/ApplicationLoader.java
+@@ -292,6 +292,14 @@ public class ApplicationLoader extends Application {
+         // AndroidUtilities must be initialized before FileLog
+         final String helloWorld = AndroidUtilities.getHelloWorld();
+ 
++        // VipMod: apply the user's custom font as the system default as early as
++        // possible, before any view/TextPaint is created, so message text is covered.
++        try {
++            AndroidUtilities.loadCustomFont();
++        } catch (Throwable ignore) {
++        }
++
++
+         if (BuildVars.LOGS_ENABLED) {
+             FileLog.d(helloWorld);
+             FileLog.d("app start time = " + (startTime = SystemClock.elapsedRealtime()));
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java b/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
 index 4ed7e649..3aa39a30 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
@@ -353,6 +487,32 @@ index 0f79e448..1411f99e 100644
      }
  
      public Long getEmojiStatus() {
+diff --git a/TMessagesProj/src/main/java/org/telegram/ui/ActionBar/Theme.java b/TMessagesProj/src/main/java/org/telegram/ui/ActionBar/Theme.java
+index 52790dfd..deab4748 100644
+--- a/TMessagesProj/src/main/java/org/telegram/ui/ActionBar/Theme.java
++++ b/TMessagesProj/src/main/java/org/telegram/ui/ActionBar/Theme.java
+@@ -8043,6 +8043,21 @@ public class Theme {
+             chat_msgTextCodePaint.setTextSize(dp(Math.max(Math.min(10, SharedConfig.fontSize - 1), SharedConfig.fontSize - 2)));
+             chat_msgTextCode2Paint.setTextSize(dp(Math.max(Math.min(10, SharedConfig.fontSize - 2), SharedConfig.fontSize - 3)));
+             chat_msgTextCode3Paint.setTextSize(dp(Math.max(Math.min(10, SharedConfig.fontSize - 2), SharedConfig.fontSize - 5)));
++
++            // VipMod: force the user's custom font onto the main message text paints.
++            // These paints normally use the platform default (no setTypeface call), so
++            // without this the message body would not follow the chosen font.
++            if (AndroidUtilities.customFontRegular != null) {
++                chat_msgTextPaint.setTypeface(AndroidUtilities.customFontRegular);
++                chat_msgGameTextPaint.setTypeface(AndroidUtilities.customFontRegular);
++                chat_replyTextPaint.setTypeface(AndroidUtilities.customFontRegular);
++                chat_quoteTextPaint.setTypeface(AndroidUtilities.customFontRegular);
++                chat_explanationTextPaint.setTypeface(AndroidUtilities.customFontRegular);
++                chat_timePaint.setTypeface(AndroidUtilities.customFontRegular);
++                chat_forwardNamePaint.setTypeface(AndroidUtilities.customFontRegular);
++                chat_adminPaint.setTypeface(AndroidUtilities.customFontRegular);
++                chat_ephemeralPaint.setTypeface(AndroidUtilities.customFontRegular);
++            }
+         }
+     }
+ 
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java b/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
 index 26d82ff8..1583c38a 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
