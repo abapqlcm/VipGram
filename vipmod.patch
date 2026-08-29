@@ -789,10 +789,10 @@ index 640e841b..3b78d754 100644
        },
        "oauth_client": [
 diff --git a/gradle.properties b/gradle.properties
-index 38299bed..27ced445 100644
+index 38299bed..30594627 100644
 --- a/gradle.properties
 +++ b/gradle.properties
-@@ -11,16 +11,16 @@
+@@ -11,17 +11,17 @@
  # When configured, Gradle will run in incubating parallel mode.
  # This option should only be used with decoupled projects. More details, visit
  # http://www.gradle.org/docs/current/userguide/multi_project_builds.html#sec:decoupled_projects
@@ -808,16 +808,18 @@ index 38299bed..27ced445 100644
  RELEASE_KEY_ALIAS=androidkey
  RELEASE_STORE_PASSWORD=android
 -org.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1g
-+org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=512m
- org.gradle.daemon=true
+-org.gradle.daemon=true
++org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=512m
++org.gradle.daemon=false
  org.gradle.parallel=true
  org.gradle.configureondemand=false
+ android.useAndroidX=true
 @@ -30,3 +30,8 @@ android.defaults.buildfeatures.buildconfig=true
  android.nonTransitiveRClass=false
  android.nonFinalResIds=false
  android.enableR8.fullMode=true
 +
-+org.gradle.workers.max=1
++org.gradle.workers.max=2
 +
 +kotlin.daemon.jvmargs=-Xmx280m -XX:MaxMetaspaceSize=128m
 +kotlin.compiler.execution.strategy=in-process
