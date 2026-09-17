@@ -52,9 +52,15 @@ jobs:
 
       - name: Setup Android SDK (runner preinstalled) + NDK
         run: |
-          # android-actions/setup-android@v3 broke on Node 24 — runner already has SDK+cmdline-tools
+          # android-actions/setup-android@v3 broke on Node 24 — runner already has SDK+cmdline-tools,
+          # but its only real job was putting sdkmanager on PATH. Do that manually:
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/cmdline-tools/16.0/bin:$PATH"
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          which sdkmanager || (echo "::error::sdkmanager not found" && exit 1)
           yes | sdkmanager --licenses > /dev/null || true
           sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018" "cmake;3.22.1"
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
 
       - name: Build release APK (full native compile)
         working-directory: telegram
