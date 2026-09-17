@@ -443,7 +443,7 @@ index 640e841b..3b78d754 100644
        },
        "oauth_client": [
 diff --git a/gradle.properties b/gradle.properties
-index 38299bed..27ced445 100644
+index 41e036e..2a74f77 100644
 --- a/gradle.properties
 +++ b/gradle.properties
 @@ -11,16 +11,16 @@
@@ -453,8 +453,8 @@ index 38299bed..27ced445 100644
 -# org.gradle.parallel=true
 +org.gradle.parallel=true
  #Sat Mar 12 05:53:50 MSK 2016
- APP_VERSION_CODE=7086
- APP_VERSION_NAME=12.10.2
+ APP_VERSION_CODE=7089
+ APP_VERSION_NAME=12.10.3
 -APP_PACKAGE=org.telegram.messenger
 +APP_PACKAGE=com.vipgram.rez
  IS_PRIVATE=false
@@ -466,10 +466,12 @@ index 38299bed..27ced445 100644
  org.gradle.daemon=true
  org.gradle.parallel=true
  org.gradle.configureondemand=false
-@@ -30,3 +35,8 @@ android.enableR8.fullMode=true
+@@ -31,3 +31,10 @@ android.enableR8.fullMode=true
  android.r8.optimizedResourceShrinking=true
  android.enableResourceOptimizations=true
  org.gradle.tooling.parallel=true
++
++
 +
 +org.gradle.workers.max=1
 +
