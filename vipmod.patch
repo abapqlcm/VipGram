@@ -73,10 +73,10 @@ index 4ed7e649..28ec49e2 100644
      public static String SAFETYNET_KEY = "AIzaSyDqt8P-7F7CPCseMkOiVRgb1LY8RN1bvH8";
      public static String PLAYSTORE_APP_URL = "https://play.google.com/store/apps/details?id=org.telegram.messenger";
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/FileLoadOperation.java b/TMessagesProj/src/main/java/org/telegram/messenger/FileLoadOperation.java
-index 4d0dac30..60986b3e 100644
+index 4d0dac30..068a505f 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/FileLoadOperation.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/FileLoadOperation.java
-@@ -153,8 +153,9 @@ public class FileLoadOperation {
+@@ -153,10 +153,12 @@ public class FileLoadOperation {
      private int downloadChunkSize = 1024 * 32;
      private int downloadChunkSizeBig = 1024 * 128;
      private int cdnChunkCheckSize = 1024 * 128;
@@ -86,17 +86,21 @@ index 4d0dac30..60986b3e 100644
 +    private int maxDownloadRequests = BuildVars.SPEED_BOOST ? 12 : 4;
 +    private int maxDownloadRequestsBig = BuildVars.SPEED_BOOST ? 12 : 4;
      private int bigFileSizeFrom = 10 * 1024 * 1024;
-     private int maxCdnParts = (int) (FileLoader.DEFAULT_MAX_FILE_SIZE / downloadChunkSizeBig);
+-    private int maxCdnParts = (int) (FileLoader.DEFAULT_MAX_FILE_SIZE / downloadChunkSizeBig);
++    // VipMod v2: keep maxCdnParts sane when chunk size is boosted (1MB chunks)
++    private int maxCdnParts = (int) (FileLoader.DEFAULT_MAX_FILE_SIZE / Math.max(downloadChunkSizeBig, 1024 * 512));
  
-@@ -292,8 +293,15 @@ public class FileLoadOperation {
+     //load small parts for stream
+     private int downloadChunkSizeAnimation = 1024 * 128;
+@@ -292,10 +294,17 @@ public class FileLoadOperation {
              maxDownloadRequestsBig = 8;
          } else {
              downloadChunkSizeBig = 1024 * 128;
 -            maxDownloadRequests = 4;
 -            maxDownloadRequestsBig = 4;
-+            // VipMod v2 speed: force experimental params (512KB chunks, 12 parallel) even without the flag
++            // VipMod v2 speed: force experimental params (1MB chunks, 12 parallel) even without the flag
 +            if (BuildVars.SPEED_BOOST) {
-+                downloadChunkSizeBig = 1024 * 512;
++                downloadChunkSizeBig = 1024 * 1024;
 +                maxDownloadRequests = 12;
 +                maxDownloadRequestsBig = 12;
 +            } else {
@@ -104,8 +108,11 @@ index 4d0dac30..60986b3e 100644
 +                maxDownloadRequestsBig = 4;
 +            }
          }
-         maxCdnParts = (int) (FileLoader.DEFAULT_MAX_FILE_SIZE / downloadChunkSizeBig);
+-        maxCdnParts = (int) (FileLoader.DEFAULT_MAX_FILE_SIZE / downloadChunkSizeBig);
++        maxCdnParts = (int) (FileLoader.DEFAULT_MAX_FILE_SIZE / Math.max(downloadChunkSizeBig, 1024 * 512));
      }
+ 
+     public FileLoadOperation(ImageLocation imageLocation, Object parent, String extension, long size) {
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java b/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
 index b2ebccd7..3921813a 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
@@ -236,10 +243,10 @@ index 0f79e448..1411f99e 100644
  
      public Long getEmojiStatus() {
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java b/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
-index 26d82ff8..1583c38a 100644
+index aec6297b..9b25ae75 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
-@@ -8672,8 +8672,7 @@ public class ChatActivity extends BaseFragment implements
+@@ -8664,8 +8664,7 @@ public class ChatActivity extends BaseFragment implements
          chatScrollHelper.setAnimationCallback(chatScrollHelperCallback);
  
          flagSecure = new FlagSecureReason(getParentActivity().getWindow(), () ->
@@ -249,7 +256,7 @@ index 26d82ff8..1583c38a 100644
          );
  
          if (oldMessage != null) {
-@@ -15545,6 +15544,10 @@ public class ChatActivity extends BaseFragment implements
+@@ -15537,6 +15536,10 @@ public class ChatActivity extends BaseFragment implements
      }
  
      private Runnable sendSecretMessageRead(MessageObject messageObject, boolean readNow) {
@@ -261,10 +268,10 @@ index 26d82ff8..1583c38a 100644
              return null;
          }
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java b/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
-index ad867192..973d9b2b 100644
+index ad880648..9c6e71d7 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
-@@ -14076,7 +14076,8 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
+@@ -14078,7 +14078,8 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
  
          animatorPollAttachButtonsVisibility.setValue(sendPhotoTypeIsPollMediaEdit, false);
  
@@ -274,7 +281,7 @@ index ad867192..973d9b2b 100644
          if (messageObject != null && messages == null) {
              if (messageObject.messageOwner != null && MessageObject.getMedia(messageObject.messageOwner) instanceof TLRPC.TL_messageMediaWebPage && MessageObject.getMedia(messageObject.messageOwner).webpage != null) {
                  TLRPC.WebPage webPage = MessageObject.getMedia(messageObject.messageOwner).webpage;
-@@ -14524,7 +14525,8 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
+@@ -14526,7 +14527,8 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
              actionBarContainer.setSubtitle(subtitle, animated);
  
              boolean isInvoice = newMessageObject.isInvoice();
@@ -284,7 +291,7 @@ index ad867192..973d9b2b 100644
              if (isVideo && !isLivePhoto) {
                  bottomLayout.setVisibility(View.VISIBLE);
                  bottomLayout.setTag(1);
-@@ -14761,11 +14763,17 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
+@@ -14763,11 +14765,17 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
              if (DialogObject.isEncryptedDialog(currentDialogId) && !isEmbedVideo || noforwards) {
                  setItemVisible(sendItem, false, false);
              }
@@ -306,7 +313,7 @@ index ad867192..973d9b2b 100644
                  setItemVisible(editItem, false, animated);
              } else {
                  allowShare = true;
-@@ -17434,8 +17442,11 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
+@@ -17438,8 +17446,11 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                  messageObject != null && (MessagesController.getInstance(currentAccount).isPeerNoForwards(messageObject.getDialogId()) ||
                  (messageObject.messageOwner != null && messageObject.messageOwner.noforwards)) || messageObject != null && messageObject.hasRevealedExtendedMedia()
              ) {
@@ -321,10 +328,10 @@ index ad867192..973d9b2b 100644
                  windowLayoutParams.flags &=~ WindowManager.LayoutParams.FLAG_SECURE;
                  AndroidUtilities.logFlagSecure();
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/SecretMediaViewer.java b/TMessagesProj/src/main/java/org/telegram/ui/SecretMediaViewer.java
-index a402e93c..c491fe95 100644
+index 635b933a..7d64656c 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/SecretMediaViewer.java
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/SecretMediaViewer.java
-@@ -87,6 +87,7 @@ import org.telegram.messenger.FileLog;
+@@ -85,6 +85,7 @@ import org.telegram.messenger.FileLog;
  import org.telegram.messenger.R;
  import org.telegram.messenger.SharedConfig;
  import org.telegram.messenger.UserConfig;
@@ -332,7 +339,7 @@ index a402e93c..c491fe95 100644
  import org.telegram.messenger.utils.WindowVisibilityManager;
  import org.telegram.tgnet.ConnectionsManager;
  import org.telegram.tgnet.TLRPC;
-@@ -963,12 +964,15 @@ public class SecretMediaViewer implements NotificationCenter.NotificationCenterD
+@@ -961,12 +962,15 @@ public class SecretMediaViewer implements NotificationCenter.NotificationCenterD
          windowLayoutParams.width = WindowManager.LayoutParams.MATCH_PARENT;
          windowLayoutParams.gravity = Gravity.TOP;
          windowLayoutParams.type = WindowManager.LayoutParams.LAST_APPLICATION_WINDOW;
@@ -352,10 +359,10 @@ index a402e93c..c491fe95 100644
          centerImage.setForceCrossfade(true);
  
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java b/TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java
-index 36debb74..d800d321 100644
+index 34ced4af..37f12f48 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java
-@@ -3723,6 +3723,12 @@ public class StoriesController {
+@@ -3726,6 +3726,12 @@ public class StoriesController {
  
          protected boolean markAsRead(int storyId) {
              if (seenStories.contains(storyId)) return false;
@@ -369,7 +376,7 @@ index 36debb74..d800d321 100644
              saveCache();
              TL_stories.TL_stories_incrementStoryViews req = new TL_stories.TL_stories_incrementStoryViews();
 diff --git a/TMessagesProj/src/main/res/values/strings.xml b/TMessagesProj/src/main/res/values/strings.xml
-index ffa4d566..c826e144 100644
+index c8cb17d3..a662763f 100644
 --- a/TMessagesProj/src/main/res/values/strings.xml
 +++ b/TMessagesProj/src/main/res/values/strings.xml
 @@ -1,6 +1,6 @@
@@ -381,10 +388,10 @@ index ffa4d566..c826e144 100644
      <string name="LanguageName">English</string>
      <string name="English">English</string>
 diff --git a/TMessagesProj_App/build.gradle b/TMessagesProj_App/build.gradle
-index b8a0ed89..3d8d87a8 100644
+index ea7a853a..9bd16086 100644
 --- a/TMessagesProj_App/build.gradle
 +++ b/TMessagesProj_App/build.gradle
-@@ -111,7 +111,7 @@ android {
+@@ -117,7 +117,7 @@ android {
      productFlavors {
          bundleAfat {
              ndk {
@@ -393,7 +400,7 @@ index b8a0ed89..3d8d87a8 100644
              }
              ext {
                  abiVersionCode = 1
-@@ -120,7 +120,7 @@ android {
+@@ -126,7 +126,7 @@ android {
          }
          bundleAfat_SDK23 {
              ndk {
@@ -402,7 +409,7 @@ index b8a0ed89..3d8d87a8 100644
              }
              sourceSets.debug {
                  manifest.srcFile '../TMessagesProj/config/debug/AndroidManifest_SDK23.xml'
-@@ -136,7 +136,7 @@ android {
+@@ -142,7 +142,7 @@ android {
          }
          afat {
              ndk {
@@ -443,7 +450,7 @@ index 640e841b..3b78d754 100644
        },
        "oauth_client": [
 diff --git a/gradle.properties b/gradle.properties
-index 41e036e..2a74f77 100644
+index 678bb086..6f7b8e30 100644
 --- a/gradle.properties
 +++ b/gradle.properties
 @@ -11,16 +11,16 @@
@@ -453,8 +460,8 @@ index 41e036e..2a74f77 100644
 -# org.gradle.parallel=true
 +org.gradle.parallel=true
  #Sat Mar 12 05:53:50 MSK 2016
- APP_VERSION_CODE=7089
- APP_VERSION_NAME=12.10.3
+ APP_VERSION_CODE=7099
+ APP_VERSION_NAME=12.10.4
 -APP_PACKAGE=org.telegram.messenger
 +APP_PACKAGE=com.vipgram.rez
  IS_PRIVATE=false
@@ -466,14 +473,13 @@ index 41e036e..2a74f77 100644
  org.gradle.daemon=true
  org.gradle.parallel=true
  org.gradle.configureondemand=false
-@@ -31,3 +31,10 @@ android.enableR8.fullMode=true
+@@ -31,3 +31,9 @@ android.enableR8.fullMode=true
  android.r8.optimizedResourceShrinking=true
  android.enableResourceOptimizations=true
  org.gradle.tooling.parallel=true
 +
 +
-+
-+org.gradle.workers.max=1
++org.gradle.workers.max=2
 +
 +kotlin.daemon.jvmargs=-Xmx280m -XX:MaxMetaspaceSize=128m
 +kotlin.compiler.execution.strategy=in-process
