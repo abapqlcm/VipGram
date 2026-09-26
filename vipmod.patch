@@ -1,6 +1,6 @@
-From 149a57d3833100b039cd299eb84602d47b1f6044 Mon Sep 17 00:00:00 2001
+From 661ef01d74bccf9782c9708e58996a86b0e402cc Mon Sep 17 00:00:00 2001
 From: Rez <iprez@users.noreply.github.com>
-Date: Sat, 26 Sep 2026 11:47:00 +0800
+Date: Sat, 26 Sep 2026 12:56:42 +0800
 Subject: [PATCH] VipMod for Telegram 12.10.5 (7105)
 
 ---
@@ -19,8 +19,11 @@ Subject: [PATCH] VipMod for Telegram 12.10.5 (7105)
  TMessagesProj/src/main/res/values/strings.xml |  2 +-
  TMessagesProj_App/build.gradle                |  6 ++--
  TMessagesProj_App/google-services.json        |  6 ++--
+ .../google-services.json                      |  6 ++--
+ TMessagesProj_AppHuawei/google-services.json  |  6 ++--
+ .../google-services.json                      |  6 ++--
  gradle.properties                             | 11 +++++--
- 16 files changed, 120 insertions(+), 41 deletions(-)
+ 19 files changed, 129 insertions(+), 50 deletions(-)
 
 diff --git a/TMessagesProj/google-services.json b/TMessagesProj/google-services.json
 index 640e841b2..3b78d754b 100644
@@ -455,6 +458,99 @@ diff --git a/TMessagesProj_App/google-services.json b/TMessagesProj_App/google-s
 index 640e841b2..3b78d754b 100644
 --- a/TMessagesProj_App/google-services.json
 +++ b/TMessagesProj_App/google-services.json
+@@ -10,7 +10,7 @@
+       "client_info": {
+         "mobilesdk_app_id": "1:760348033671:android:f6afd7b67eae3860",
+         "android_client_info": {
+-          "package_name": "org.telegram.messenger"
++          "package_name": "com.vipgram.rez"
+         }
+       },
+       "oauth_client": [
+@@ -39,7 +39,7 @@
+       "client_info": {
+         "mobilesdk_app_id": "1:760348033671:android:dc022572c167a16c",
+         "android_client_info": {
+-          "package_name": "org.telegram.messenger.beta"
++          "package_name": "com.vipgram.rez"
+         }
+       },
+       "oauth_client": [
+@@ -68,7 +68,7 @@
+       "client_info": {
+         "mobilesdk_app_id": "1:760348033671:android:7396e651423888c3f66e22",
+         "android_client_info": {
+-          "package_name": "org.telegram.messenger.web"
++          "package_name": "com.vipgram.rez"
+         }
+       },
+       "oauth_client": [
+diff --git a/TMessagesProj_AppHockeyApp/google-services.json b/TMessagesProj_AppHockeyApp/google-services.json
+index 640e841b2..3b78d754b 100644
+--- a/TMessagesProj_AppHockeyApp/google-services.json
++++ b/TMessagesProj_AppHockeyApp/google-services.json
+@@ -10,7 +10,7 @@
+       "client_info": {
+         "mobilesdk_app_id": "1:760348033671:android:f6afd7b67eae3860",
+         "android_client_info": {
+-          "package_name": "org.telegram.messenger"
++          "package_name": "com.vipgram.rez"
+         }
+       },
+       "oauth_client": [
+@@ -39,7 +39,7 @@
+       "client_info": {
+         "mobilesdk_app_id": "1:760348033671:android:dc022572c167a16c",
+         "android_client_info": {
+-          "package_name": "org.telegram.messenger.beta"
++          "package_name": "com.vipgram.rez"
+         }
+       },
+       "oauth_client": [
+@@ -68,7 +68,7 @@
+       "client_info": {
+         "mobilesdk_app_id": "1:760348033671:android:7396e651423888c3f66e22",
+         "android_client_info": {
+-          "package_name": "org.telegram.messenger.web"
++          "package_name": "com.vipgram.rez"
+         }
+       },
+       "oauth_client": [
+diff --git a/TMessagesProj_AppHuawei/google-services.json b/TMessagesProj_AppHuawei/google-services.json
+index 640e841b2..3b78d754b 100644
+--- a/TMessagesProj_AppHuawei/google-services.json
++++ b/TMessagesProj_AppHuawei/google-services.json
+@@ -10,7 +10,7 @@
+       "client_info": {
+         "mobilesdk_app_id": "1:760348033671:android:f6afd7b67eae3860",
+         "android_client_info": {
+-          "package_name": "org.telegram.messenger"
++          "package_name": "com.vipgram.rez"
+         }
+       },
+       "oauth_client": [
+@@ -39,7 +39,7 @@
+       "client_info": {
+         "mobilesdk_app_id": "1:760348033671:android:dc022572c167a16c",
+         "android_client_info": {
+-          "package_name": "org.telegram.messenger.beta"
++          "package_name": "com.vipgram.rez"
+         }
+       },
+       "oauth_client": [
+@@ -68,7 +68,7 @@
+       "client_info": {
+         "mobilesdk_app_id": "1:760348033671:android:7396e651423888c3f66e22",
+         "android_client_info": {
+-          "package_name": "org.telegram.messenger.web"
++          "package_name": "com.vipgram.rez"
+         }
+       },
+       "oauth_client": [
+diff --git a/TMessagesProj_AppStandalone/google-services.json b/TMessagesProj_AppStandalone/google-services.json
+index 640e841b2..3b78d754b 100644
+--- a/TMessagesProj_AppStandalone/google-services.json
++++ b/TMessagesProj_AppStandalone/google-services.json
 @@ -10,7 +10,7 @@
        "client_info": {
          "mobilesdk_app_id": "1:760348033671:android:f6afd7b67eae3860",
