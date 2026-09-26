@@ -1,7 +1,40 @@
+From 149a57d3833100b039cd299eb84602d47b1f6044 Mon Sep 17 00:00:00 2001
+From: Rez <iprez@users.noreply.github.com>
+Date: Sat, 26 Sep 2026 11:47:00 +0800
+Subject: [PATCH] VipMod for Telegram 12.10.5 (7105)
+
+---
+ TMessagesProj/google-services.json            |  6 ++--
+ TMessagesProj/jni/tgnet/Connection.cpp        |  4 +--
+ .../jni/tgnet/ConnectionsManager.cpp          |  2 +-
+ .../org/telegram/messenger/BuildVars.java     | 13 ++++++++
+ .../telegram/messenger/FileLoadOperation.java | 21 +++++++++----
+ .../messenger/FileUploadOperation.java        |  6 ++--
+ .../messenger/MessagesController.java         | 31 +++++++++++++++++--
+ .../org/telegram/messenger/UserConfig.java    |  3 +-
+ .../java/org/telegram/ui/ChatActivity.java    |  7 +++--
+ .../java/org/telegram/ui/PhotoViewer.java     | 27 +++++++++++-----
+ .../org/telegram/ui/SecretMediaViewer.java    | 10 ++++--
+ .../ui/Stories/StoriesController.java         |  6 ++++
+ TMessagesProj/src/main/res/values/strings.xml |  2 +-
+ TMessagesProj_App/build.gradle                |  6 ++--
+ TMessagesProj_App/google-services.json        |  6 ++--
+ gradle.properties                             | 11 +++++--
+ 16 files changed, 120 insertions(+), 41 deletions(-)
+
 diff --git a/TMessagesProj/google-services.json b/TMessagesProj/google-services.json
-index 640e841b..3bc9b8f4 100644
+index 640e841b2..3b78d754b 100644
 --- a/TMessagesProj/google-services.json
 +++ b/TMessagesProj/google-services.json
+@@ -10,7 +10,7 @@
+       "client_info": {
+         "mobilesdk_app_id": "1:760348033671:android:f6afd7b67eae3860",
+         "android_client_info": {
+-          "package_name": "org.telegram.messenger"
++          "package_name": "com.vipgram.rez"
+         }
+       },
+       "oauth_client": [
 @@ -39,7 +39,7 @@
        "client_info": {
          "mobilesdk_app_id": "1:760348033671:android:dc022572c167a16c",
@@ -21,7 +54,7 @@ index 640e841b..3bc9b8f4 100644
        },
        "oauth_client": [
 diff --git a/TMessagesProj/jni/tgnet/Connection.cpp b/TMessagesProj/jni/tgnet/Connection.cpp
-index 3ce0c222..56f30dcf 100644
+index 3ce0c222d..56f30dcf1 100644
 --- a/TMessagesProj/jni/tgnet/Connection.cpp
 +++ b/TMessagesProj/jni/tgnet/Connection.cpp
 @@ -705,8 +705,8 @@ void Connection::onDisconnectedInternal(int32_t reason, int32_t error) {
@@ -36,7 +69,7 @@ index 3ce0c222..56f30dcf 100644
                  reconnectTimer->start();
              }
 diff --git a/TMessagesProj/jni/tgnet/ConnectionsManager.cpp b/TMessagesProj/jni/tgnet/ConnectionsManager.cpp
-index 32d590e8..b86928cd 100644
+index 32d590e85..b86928cde 100644
 --- a/TMessagesProj/jni/tgnet/ConnectionsManager.cpp
 +++ b/TMessagesProj/jni/tgnet/ConnectionsManager.cpp
 @@ -292,7 +292,7 @@ void ConnectionsManager::select() {
@@ -49,7 +82,7 @@ index 32d590e8..b86928cd 100644
                  sendPing(datacenter, false);
              }
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java b/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
-index 4ed7e649..28ec49e2 100644
+index 4ed7e6491..28ec49e28 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/BuildVars.java
 @@ -29,6 +29,19 @@ public class BuildVars {
@@ -73,7 +106,7 @@ index 4ed7e649..28ec49e2 100644
      public static String SAFETYNET_KEY = "AIzaSyDqt8P-7F7CPCseMkOiVRgb1LY8RN1bvH8";
      public static String PLAYSTORE_APP_URL = "https://play.google.com/store/apps/details?id=org.telegram.messenger";
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/FileLoadOperation.java b/TMessagesProj/src/main/java/org/telegram/messenger/FileLoadOperation.java
-index 4d0dac30..068a505f 100644
+index 4d0dac30c..068a505fc 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/FileLoadOperation.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/FileLoadOperation.java
 @@ -153,10 +153,12 @@ public class FileLoadOperation {
@@ -114,7 +147,7 @@ index 4d0dac30..068a505f 100644
  
      public FileLoadOperation(ImageLocation imageLocation, Object parent, String extension, long size) {
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java b/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
-index b2ebccd7..3921813a 100644
+index b2ebccd72..3921813a2 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
 @@ -41,7 +41,8 @@ public class FileUploadOperation {
@@ -138,7 +171,7 @@ index b2ebccd7..3921813a 100644
                  if (isEncrypted) {
                      freeRequestIvs = new ArrayList<>(maxRequestsCount);
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java b/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
-index 7a0b35b1..2000a68d 100644
+index 7a0b35b13..2000a68d6 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
 @@ -6859,6 +6859,13 @@ public class MessagesController extends BaseController implements NotificationCe
@@ -229,7 +262,7 @@ index 7a0b35b1..2000a68d 100644
          if (info != null && (info.loading || Math.abs(SystemClock.elapsedRealtime() - info.loadTime) <= 5 * 60 * 1000)) {
              return info;
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/UserConfig.java b/TMessagesProj/src/main/java/org/telegram/messenger/UserConfig.java
-index 0f79e448..1411f99e 100644
+index 0f79e4480..1411f99eb 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/UserConfig.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/UserConfig.java
 @@ -576,7 +576,8 @@ public class UserConfig extends BaseController {
@@ -243,7 +276,7 @@ index 0f79e448..1411f99e 100644
  
      public Long getEmojiStatus() {
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java b/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
-index aec6297b..9b25ae75 100644
+index 1b7ea04f2..57975020f 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
 @@ -8664,8 +8664,7 @@ public class ChatActivity extends BaseFragment implements
@@ -256,7 +289,7 @@ index aec6297b..9b25ae75 100644
          );
  
          if (oldMessage != null) {
-@@ -15537,6 +15536,10 @@ public class ChatActivity extends BaseFragment implements
+@@ -15560,6 +15559,10 @@ public class ChatActivity extends BaseFragment implements
      }
  
      private Runnable sendSecretMessageRead(MessageObject messageObject, boolean readNow) {
@@ -268,10 +301,10 @@ index aec6297b..9b25ae75 100644
              return null;
          }
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java b/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
-index ad880648..9c6e71d7 100644
+index c16a5c22e..1547020a7 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
-@@ -14078,7 +14078,8 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
+@@ -14077,7 +14077,8 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
  
          animatorPollAttachButtonsVisibility.setValue(sendPhotoTypeIsPollMediaEdit, false);
  
@@ -281,7 +314,7 @@ index ad880648..9c6e71d7 100644
          if (messageObject != null && messages == null) {
              if (messageObject.messageOwner != null && MessageObject.getMedia(messageObject.messageOwner) instanceof TLRPC.TL_messageMediaWebPage && MessageObject.getMedia(messageObject.messageOwner).webpage != null) {
                  TLRPC.WebPage webPage = MessageObject.getMedia(messageObject.messageOwner).webpage;
-@@ -14526,7 +14527,8 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
+@@ -14525,7 +14526,8 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
              actionBarContainer.setSubtitle(subtitle, animated);
  
              boolean isInvoice = newMessageObject.isInvoice();
@@ -291,7 +324,7 @@ index ad880648..9c6e71d7 100644
              if (isVideo && !isLivePhoto) {
                  bottomLayout.setVisibility(View.VISIBLE);
                  bottomLayout.setTag(1);
-@@ -14763,11 +14765,17 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
+@@ -14762,11 +14764,17 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
              if (DialogObject.isEncryptedDialog(currentDialogId) && !isEmbedVideo || noforwards) {
                  setItemVisible(sendItem, false, false);
              }
@@ -313,7 +346,7 @@ index ad880648..9c6e71d7 100644
                  setItemVisible(editItem, false, animated);
              } else {
                  allowShare = true;
-@@ -17438,8 +17446,11 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
+@@ -17437,8 +17445,11 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                  messageObject != null && (MessagesController.getInstance(currentAccount).isPeerNoForwards(messageObject.getDialogId()) ||
                  (messageObject.messageOwner != null && messageObject.messageOwner.noforwards)) || messageObject != null && messageObject.hasRevealedExtendedMedia()
              ) {
@@ -328,7 +361,7 @@ index ad880648..9c6e71d7 100644
                  windowLayoutParams.flags &=~ WindowManager.LayoutParams.FLAG_SECURE;
                  AndroidUtilities.logFlagSecure();
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/SecretMediaViewer.java b/TMessagesProj/src/main/java/org/telegram/ui/SecretMediaViewer.java
-index 635b933a..7d64656c 100644
+index 635b933a9..7d64656ce 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/SecretMediaViewer.java
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/SecretMediaViewer.java
 @@ -85,6 +85,7 @@ import org.telegram.messenger.FileLog;
@@ -359,10 +392,10 @@ index 635b933a..7d64656c 100644
          centerImage.setForceCrossfade(true);
  
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java b/TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java
-index 34ced4af..37f12f48 100644
+index 12dc19d2b..5c217c540 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/Stories/StoriesController.java
-@@ -3726,6 +3726,12 @@ public class StoriesController {
+@@ -3721,6 +3721,12 @@ public class StoriesController {
  
          protected boolean markAsRead(int storyId) {
              if (seenStories.contains(storyId)) return false;
@@ -376,7 +409,7 @@ index 34ced4af..37f12f48 100644
              saveCache();
              TL_stories.TL_stories_incrementStoryViews req = new TL_stories.TL_stories_incrementStoryViews();
 diff --git a/TMessagesProj/src/main/res/values/strings.xml b/TMessagesProj/src/main/res/values/strings.xml
-index c8cb17d3..a662763f 100644
+index 1013bb6d8..de5bf863a 100644
 --- a/TMessagesProj/src/main/res/values/strings.xml
 +++ b/TMessagesProj/src/main/res/values/strings.xml
 @@ -1,6 +1,6 @@
@@ -388,7 +421,7 @@ index c8cb17d3..a662763f 100644
      <string name="LanguageName">English</string>
      <string name="English">English</string>
 diff --git a/TMessagesProj_App/build.gradle b/TMessagesProj_App/build.gradle
-index ea7a853a..9bd16086 100644
+index ea7a853af..9bd16086a 100644
 --- a/TMessagesProj_App/build.gradle
 +++ b/TMessagesProj_App/build.gradle
 @@ -117,7 +117,7 @@ android {
@@ -419,7 +452,7 @@ index ea7a853a..9bd16086 100644
              sourceSets.debug {
                  manifest.srcFile '../TMessagesProj/config/debug/AndroidManifest_SDK23.xml'
 diff --git a/TMessagesProj_App/google-services.json b/TMessagesProj_App/google-services.json
-index 640e841b..3b78d754 100644
+index 640e841b2..3b78d754b 100644
 --- a/TMessagesProj_App/google-services.json
 +++ b/TMessagesProj_App/google-services.json
 @@ -10,7 +10,7 @@
@@ -450,7 +483,7 @@ index 640e841b..3b78d754 100644
        },
        "oauth_client": [
 diff --git a/gradle.properties b/gradle.properties
-index 678bb086..6f7b8e30 100644
+index 69fa6e2b6..16a9e6b3e 100644
 --- a/gradle.properties
 +++ b/gradle.properties
 @@ -11,16 +11,16 @@
@@ -460,8 +493,8 @@ index 678bb086..6f7b8e30 100644
 -# org.gradle.parallel=true
 +org.gradle.parallel=true
  #Sat Mar 12 05:53:50 MSK 2016
- APP_VERSION_CODE=7099
- APP_VERSION_NAME=12.10.4
+ APP_VERSION_CODE=7105
+ APP_VERSION_NAME=12.10.5
 -APP_PACKAGE=org.telegram.messenger
 +APP_PACKAGE=com.vipgram.rez
  IS_PRIVATE=false
@@ -473,13 +506,15 @@ index 678bb086..6f7b8e30 100644
  org.gradle.daemon=true
  org.gradle.parallel=true
  org.gradle.configureondemand=false
-@@ -31,3 +31,9 @@ android.enableR8.fullMode=true
+@@ -31,3 +31,8 @@ android.enableR8.fullMode=true
  android.r8.optimizedResourceShrinking=true
  android.enableResourceOptimizations=true
  org.gradle.tooling.parallel=true
-+
 +
 +org.gradle.workers.max=2
 +
 +kotlin.daemon.jvmargs=-Xmx280m -XX:MaxMetaspaceSize=128m
 +kotlin.compiler.execution.strategy=in-process
+-- 
+2.43.0
+
