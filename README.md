@@ -4,12 +4,12 @@
 
 ### تلگرام شخصی‌سازی‌شده برای اندروید — بدون تبلیغ، بدون حذف، بدون محدودیت
 
-بر پایه‌ی سورس رسمی [Telegram for Android](https://github.com/DrKLO/Telegram) · نسخه ۱۲.۱۰.۱
+بر پایه‌ی سورس رسمی [Telegram for Android](https://github.com/DrKLO/Telegram) · نسخه ۱۲.۱۰.۶
 
 <br/>
 
 ![Platform](https://img.shields.io/badge/platform-Android_8.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)
-![Telegram](https://img.shields.io/badge/based%20on-Telegram%2012.10.1-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)
+![Telegram](https://img.shields.io/badge/based%20on-Telegram%2012.10.6-26A5E4?style=for-the-badge&logo=telegram&logoColor=white)
 ![Arch](https://img.shields.io/badge/arch-arm64--v8a-0A0A0A?style=for-the-badge)
 ![CI](https://img.shields.io/badge/build-GitHub%20Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)
 ![Mod](https://img.shields.io/badge/patches-8%20mods-D4AF37?style=for-the-badge)
