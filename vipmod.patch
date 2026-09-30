@@ -1,3 +1,52 @@
+From f15bd48431d7e5ccab6237a5a2a2c2d92de71538 Mon Sep 17 00:00:00 2001
+From: Rez <iprez@users.noreply.github.com>
+Date: Thu, 1 Oct 2026 02:25:02 +0800
+Subject: [PATCH] feat: rebase patch to Telegram 12.10.6 (7112)
+
+---
+ TMessagesProj/google-services.json            |  4 +--
+ TMessagesProj/jni/tgnet/Connection.cpp        |  4 +--
+ .../jni/tgnet/ConnectionsManager.cpp          |  2 +-
+ .../org/telegram/messenger/BuildVars.java     | 13 ++++++++
+ .../telegram/messenger/FileLoadOperation.java | 21 +++++++++----
+ .../messenger/FileUploadOperation.java        |  6 ++--
+ .../messenger/MessagesController.java         | 31 +++++++++++++++++--
+ .../org/telegram/messenger/UserConfig.java    |  3 +-
+ .../java/org/telegram/ui/ChatActivity.java    |  7 +++--
+ .../java/org/telegram/ui/PhotoViewer.java     | 27 +++++++++++-----
+ .../org/telegram/ui/SecretMediaViewer.java    | 10 ++++--
+ .../ui/Stories/StoriesController.java         |  6 ++++
+ TMessagesProj/src/main/res/values/strings.xml |  2 +-
+ TMessagesProj_App/build.gradle                |  6 ++--
+ TMessagesProj_App/google-services.json        |  6 ++--
+ .../google-services.json                      |  6 ++--
+ TMessagesProj_AppHuawei/google-services.json  |  6 ++--
+ .../google-services.json                      |  6 ++--
+ gradle.properties                             | 11 +++++--
+ 19 files changed, 128 insertions(+), 49 deletions(-)
+
+diff --git a/TMessagesProj/google-services.json b/TMessagesProj/google-services.json
+index 640e841b2..3bc9b8f4c 100644
+--- a/TMessagesProj/google-services.json
++++ b/TMessagesProj/google-services.json
+@@ -39,7 +39,7 @@
+       "client_info": {
+         "mobilesdk_app_id": "1:760348033671:android:dc022572c167a16c",
+         "android_client_info": {
+-          "package_name": "org.telegram.messenger.beta"
++          "package_name": "com.vipgram.rez"
+         }
+       },
+       "oauth_client": [
+@@ -68,7 +68,7 @@
+       "client_info": {
+         "mobilesdk_app_id": "1:760348033671:android:7396e651423888c3f66e22",
+         "android_client_info": {
+-          "package_name": "org.telegram.messenger.web"
++          "package_name": "com.vipgram.rez"
+         }
+       },
+       "oauth_client": [
 diff --git a/TMessagesProj/jni/tgnet/Connection.cpp b/TMessagesProj/jni/tgnet/Connection.cpp
 index 3ce0c222d..56f30dcf1 100644
 --- a/TMessagesProj/jni/tgnet/Connection.cpp
@@ -221,10 +270,10 @@ index 0f79e4480..1411f99eb 100644
  
      public Long getEmojiStatus() {
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java b/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
-index 1b7ea04f2..57975020f 100644
+index fcd1abc9b..63b3c2818 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
-@@ -8664,8 +8664,7 @@ public class ChatActivity extends BaseFragment implements
+@@ -8665,8 +8665,7 @@ public class ChatActivity extends BaseFragment implements
          chatScrollHelper.setAnimationCallback(chatScrollHelperCallback);
  
          flagSecure = new FlagSecureReason(getParentActivity().getWindow(), () ->
@@ -234,7 +283,7 @@ index 1b7ea04f2..57975020f 100644
          );
  
          if (oldMessage != null) {
-@@ -15560,6 +15559,10 @@ public class ChatActivity extends BaseFragment implements
+@@ -15561,6 +15560,10 @@ public class ChatActivity extends BaseFragment implements
      }
  
      private Runnable sendSecretMessageRead(MessageObject messageObject, boolean readNow) {
@@ -246,10 +295,10 @@ index 1b7ea04f2..57975020f 100644
              return null;
          }
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java b/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
-index c16a5c22e..1547020a7 100644
+index bf5ce097d..fba0e1056 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/PhotoViewer.java
-@@ -14077,7 +14077,8 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
+@@ -14082,7 +14082,8 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
  
          animatorPollAttachButtonsVisibility.setValue(sendPhotoTypeIsPollMediaEdit, false);
  
@@ -259,7 +308,7 @@ index c16a5c22e..1547020a7 100644
          if (messageObject != null && messages == null) {
              if (messageObject.messageOwner != null && MessageObject.getMedia(messageObject.messageOwner) instanceof TLRPC.TL_messageMediaWebPage && MessageObject.getMedia(messageObject.messageOwner).webpage != null) {
                  TLRPC.WebPage webPage = MessageObject.getMedia(messageObject.messageOwner).webpage;
-@@ -14525,7 +14526,8 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
+@@ -14530,7 +14531,8 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
              actionBarContainer.setSubtitle(subtitle, animated);
  
              boolean isInvoice = newMessageObject.isInvoice();
@@ -269,7 +318,7 @@ index c16a5c22e..1547020a7 100644
              if (isVideo && !isLivePhoto) {
                  bottomLayout.setVisibility(View.VISIBLE);
                  bottomLayout.setTag(1);
-@@ -14762,11 +14764,17 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
+@@ -14767,11 +14769,17 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
              if (DialogObject.isEncryptedDialog(currentDialogId) && !isEmbedVideo || noforwards) {
                  setItemVisible(sendItem, false, false);
              }
@@ -291,7 +340,7 @@ index c16a5c22e..1547020a7 100644
                  setItemVisible(editItem, false, animated);
              } else {
                  allowShare = true;
-@@ -17437,8 +17445,11 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
+@@ -17442,8 +17450,11 @@ public class PhotoViewer implements NotificationCenter.NotificationCenterDelegat
                  messageObject != null && (MessagesController.getInstance(currentAccount).isPeerNoForwards(messageObject.getDialogId()) ||
                  (messageObject.messageOwner != null && messageObject.messageOwner.noforwards)) || messageObject != null && messageObject.hasRevealedExtendedMedia()
              ) {
@@ -396,64 +445,6 @@ index ea7a853af..9bd16086a 100644
              }
              sourceSets.debug {
                  manifest.srcFile '../TMessagesProj/config/debug/AndroidManifest_SDK23.xml'
-diff --git a/gradle.properties b/gradle.properties
-index 69fa6e2b6..16a9e6b3e 100644
---- a/gradle.properties
-+++ b/gradle.properties
-@@ -11,16 +11,16 @@
- # When configured, Gradle will run in incubating parallel mode.
- # This option should only be used with decoupled projects. More details, visit
- # http://www.gradle.org/docs/current/userguide/multi_project_builds.html#sec:decoupled_projects
--# org.gradle.parallel=true
-+org.gradle.parallel=true
- #Sat Mar 12 05:53:50 MSK 2016
- APP_VERSION_CODE=7105
- APP_VERSION_NAME=12.10.5
--APP_PACKAGE=org.telegram.messenger
-+APP_PACKAGE=com.vipgram.rez
- IS_PRIVATE=false
- RELEASE_KEY_PASSWORD=android
- RELEASE_KEY_ALIAS=androidkey
- RELEASE_STORE_PASSWORD=android
--org.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1g
-+org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=512m
- org.gradle.daemon=true
- org.gradle.parallel=true
- org.gradle.configureondemand=false
-@@ -31,3 +31,8 @@ android.enableR8.fullMode=true
- android.r8.optimizedResourceShrinking=true
- android.enableResourceOptimizations=true
- org.gradle.tooling.parallel=true
-+
-+org.gradle.workers.max=2
-+
-+kotlin.daemon.jvmargs=-Xmx280m -XX:MaxMetaspaceSize=128m
-+kotlin.compiler.execution.strategy=in-process
--- 
-2.43.0
-
-diff --git a/TMessagesProj/google-services.json b/TMessagesProj/google-services.json
-index 640e841b2..3bc9b8f4c 100644
---- a/TMessagesProj/google-services.json
-+++ b/TMessagesProj/google-services.json
-@@ -39,7 +39,7 @@
-       "client_info": {
-         "mobilesdk_app_id": "1:760348033671:android:dc022572c167a16c",
-         "android_client_info": {
--          "package_name": "org.telegram.messenger.beta"
-+          "package_name": "com.vipgram.rez"
-         }
-       },
-       "oauth_client": [
-@@ -68,7 +68,7 @@
-       "client_info": {
-         "mobilesdk_app_id": "1:760348033671:android:7396e651423888c3f66e22",
-         "android_client_info": {
--          "package_name": "org.telegram.messenger.web"
-+          "package_name": "com.vipgram.rez"
-         }
-       },
-       "oauth_client": [
 diff --git a/TMessagesProj_App/google-services.json b/TMessagesProj_App/google-services.json
 index 640e841b2..3b78d754b 100644
 --- a/TMessagesProj_App/google-services.json
@@ -578,6 +569,39 @@ index 640e841b2..3b78d754b 100644
          }
        },
        "oauth_client": [
+diff --git a/gradle.properties b/gradle.properties
+index 0485dacd5..9f0ac56a4 100644
+--- a/gradle.properties
++++ b/gradle.properties
+@@ -11,16 +11,16 @@
+ # When configured, Gradle will run in incubating parallel mode.
+ # This option should only be used with decoupled projects. More details, visit
+ # http://www.gradle.org/docs/current/userguide/multi_project_builds.html#sec:decoupled_projects
+-# org.gradle.parallel=true
++org.gradle.parallel=true
+ #Sat Mar 12 05:53:50 MSK 2016
+ APP_VERSION_CODE=7112
+ APP_VERSION_NAME=12.10.6
+-APP_PACKAGE=org.telegram.messenger
++APP_PACKAGE=com.vipgram.rez
+ IS_PRIVATE=false
+ RELEASE_KEY_PASSWORD=android
+ RELEASE_KEY_ALIAS=androidkey
+ RELEASE_STORE_PASSWORD=android
+-org.gradle.jvmargs=-Xmx8g -XX:MaxMetaspaceSize=1g
++org.gradle.jvmargs=-Xmx6g -XX:MaxMetaspaceSize=512m
+ org.gradle.daemon=true
+ org.gradle.parallel=true
+ org.gradle.configureondemand=false
+@@ -31,3 +31,8 @@ android.enableR8.fullMode=true
+ android.r8.optimizedResourceShrinking=true
+ android.enableResourceOptimizations=true
+ org.gradle.tooling.parallel=true
++
++org.gradle.workers.max=2
++
++kotlin.daemon.jvmargs=-Xmx280m -XX:MaxMetaspaceSize=128m
++kotlin.compiler.execution.strategy=in-process
 -- 
 2.43.0
 
