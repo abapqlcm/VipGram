@@ -11,6 +11,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Needed by the final step, which publishes the APK as a GitHub Release
+    # via the runner's own token.
+    permissions:
+      contents: write
     steps:
       - name: Checkout this repo (vipmod.patch lives here)
         uses: actions/checkout@v5
@@ -87,3 +91,21 @@ jobs:
           path: apks/*.apk
           retention-days: 30
           compression-level: 0
+
+      # The artifact needs a authenticated download; a published Release does
+      # not, so this is the link that actually gets handed to the user.
+      - name: Publish APK as a GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(grep -E '^APP_VERSION_NAME=' telegram/gradle.properties | cut -d= -f2)
+          CODE=$(grep -E '^APP_VERSION_CODE=' telegram/gradle.properties | cut -d= -f2)
+          TAG="v${VERSION}-${CODE}"
+          # gh exists on ubuntu-latest runners.
+          for apk in apks/*.apk; do
+            gh release create "$TAG" "$apk" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "VipGram ${VERSION} (${CODE})" \
+              --notes "Auto-built from upstream Telegram ${VERSION} (${CODE})." \
+              --generate-notes || true
+          done
