@@ -121,7 +121,7 @@ index 9c6702cb..1c139d7e 100644
                  uploadConnectionsCount = AccountInstance.getInstance(currentAccount).getUserConfig().isPremium() ? ConnectionsManager.UploadConnectionsCountPremium : 4;
  
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java b/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
-index 9d0077ff..686d5756 100644
+index ec768357..3e0f7ec7 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/MessagesController.java
 @@ -6832,6 +6832,13 @@ public class MessagesController extends BaseController implements NotificationCe
@@ -182,7 +182,7 @@ index 9d0077ff..686d5756 100644
                  if (BuildVars.LOGS_ENABLED) {
                      FileLog.d(baseUpdate + " channelId = " + update.channel_id);
                  }
-@@ -21201,7 +21222,7 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -21204,7 +21225,7 @@ public class MessagesController extends BaseController implements NotificationCe
                      getNotificationCenter().postNotificationName(NotificationCenter.messagesReadContent, key, value);
                  }
              }
@@ -191,7 +191,7 @@ index 9d0077ff..686d5756 100644
                  for (int a = 0, size = deletedMessagesFinal.size(); a < size; a++) {
                      long dialogId = deletedMessagesFinal.keyAt(a);
                      ArrayList<Integer> arrayList = deletedMessagesFinal.valueAt(a);
-@@ -21321,7 +21342,7 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -21324,7 +21345,7 @@ public class MessagesController extends BaseController implements NotificationCe
                  getMessagesStorage().markMessagesContentAsRead(key, arrayList, currentTime2, markContentAsReadMessagesDate);
              }
          }
@@ -200,7 +200,7 @@ index 9d0077ff..686d5756 100644
              for (int a = 0, size = deletedMessages.size(); a < size; a++) {
                  long key = deletedMessages.keyAt(a);
                  ArrayList<Integer> arrayList = deletedMessages.valueAt(a);
-@@ -21724,6 +21745,10 @@ public class MessagesController extends BaseController implements NotificationCe
+@@ -21727,6 +21748,10 @@ public class MessagesController extends BaseController implements NotificationCe
      }
  
      public SponsoredMessagesInfo getSponsoredMessages(long dialogId) {
@@ -226,10 +226,10 @@ index 3abf7992..092ebce7 100644
  
      public Long getEmojiStatus() {
 diff --git a/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java b/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
-index 1ed161bf..c553d80a 100644
+index a54b1341..87c9447a 100644
 --- a/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
 +++ b/TMessagesProj/src/main/java/org/telegram/ui/ChatActivity.java
-@@ -8722,8 +8722,7 @@ public class ChatActivity extends BaseFragment implements
+@@ -8726,8 +8726,7 @@ public class ChatActivity extends BaseFragment implements
          chatScrollHelper.setAnimationCallback(chatScrollHelperCallback);
  
          flagSecure = new FlagSecureReason(getParentActivity().getWindow(), () ->
@@ -239,7 +239,7 @@ index 1ed161bf..c553d80a 100644
          );
  
          if (oldMessage != null) {
-@@ -16233,6 +16232,10 @@ public class ChatActivity extends BaseFragment implements
+@@ -16248,6 +16247,10 @@ public class ChatActivity extends BaseFragment implements
      }
  
      private Runnable sendSecretMessageRead(MessageObject messageObject, boolean readNow) {
@@ -359,7 +359,7 @@ index 529eb5ca..636f7bca 100644
              saveCache();
              TL_stories.TL_stories_incrementStoryViews req = new TL_stories.TL_stories_incrementStoryViews();
 diff --git a/TMessagesProj/src/main/res/values/strings.xml b/TMessagesProj/src/main/res/values/strings.xml
-index 9f56ca61..04dd6bb0 100644
+index e4f8cf67..a4b5e7a1 100644
 --- a/TMessagesProj/src/main/res/values/strings.xml
 +++ b/TMessagesProj/src/main/res/values/strings.xml
 @@ -1,6 +1,6 @@
@@ -371,7 +371,7 @@ index 9f56ca61..04dd6bb0 100644
      <string name="LanguageName">English</string>
      <string name="English">English</string>
 diff --git a/TMessagesProj_App/build.gradle b/TMessagesProj_App/build.gradle
-index c581f3de..76901538 100644
+index daff2057..a5a57893 100644
 --- a/TMessagesProj_App/build.gradle
 +++ b/TMessagesProj_App/build.gradle
 @@ -122,7 +122,7 @@ android {
@@ -517,13 +517,13 @@ index 640e841b..3b78d754 100644
        },
        "oauth_client": [
 diff --git a/gradle.properties b/gradle.properties
-index 574e3b80..7ac02058 100644
+index 17bb1dca..9cf29f42 100644
 --- a/gradle.properties
 +++ b/gradle.properties
 @@ -15,7 +15,7 @@
  #Sat Mar 12 05:53:50 MSK 2016
- APP_VERSION_CODE=7291
- APP_VERSION_NAME=13.2.1
+ APP_VERSION_CODE=7303
+ APP_VERSION_NAME=13.2.2
 -APP_PACKAGE=org.telegram.messenger
 +APP_PACKAGE=com.vipgram.rez
  IS_PRIVATE=false
