@@ -24,8 +24,10 @@ jobs:
           git clone https://github.com/DrKLO/Telegram.git telegram
           cd telegram
           git log -1 --format="SOURCE: %h %s"
-          # native code compiles from these submodules — ALL of them are required
-          git submodule update --init --depth 1
+          # native code compiles from these submodules — ALL of them are required.
+          # --recursive is required since 13.2.2: jni/twidget/widget-sandbox now nests
+          # CQuickJS/quickjs, and CMake fails ("Missing .../quickjs.c in jni/twidget") without it.
+          git submodule update --init --depth 1 --recursive
 
       - name: Apply VipMod patch
         run: |
