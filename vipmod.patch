@@ -51,7 +51,7 @@ index ca821813..ea03fdb9 100644
      public static String SAFETYNET_KEY = "AIzaSyDqt8P-7F7CPCseMkOiVRgb1LY8RN1bvH8";
      public static String PLAYSTORE_APP_URL = "https://play.google.com/store/apps/details?id=org.telegram.messenger";
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/FileLoadOperation.java b/TMessagesProj/src/main/java/org/telegram/messenger/FileLoadOperation.java
-index 70c5e895..4fca88dd 100644
+index 70c5e895..6c7de249 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/FileLoadOperation.java
 +++ b/TMessagesProj/src/main/java/org/telegram/messenger/FileLoadOperation.java
 @@ -166,10 +166,12 @@ public class FileLoadOperation {
@@ -96,6 +96,26 @@ index 70c5e895..4fca88dd 100644
      }
  
      public FileLoadOperation(ImageLocation imageLocation, Object parent, String extension, long size) {
+@@ -856,9 +865,18 @@ public class FileLoadOperation {
+         useDownloadByteBudget = !MessagesController.getInstance(currentAccount).downloadImprovementKillswitch &&
+                 totalBytesCount > 0 && key == null && !encryptFile && !isPreloadVideoOperation && preloadPrefixSize == 0;
+         if (useDownloadByteBudget) {
+-            boolean premium = UserConfig.getInstance(currentAccount).isPremium();
++            // VipMod fix: use the RAW server premium flag, not isPremium() — LOCAL_PREMIUM_LOOK must not
++            // fake premium here, otherwise Java assumes a 16MB budget while the native layer only grants
++            // 2MB for a free account (raw user.premium), stalling most issued requests in the queue.
++            boolean premium = UserConfig.getInstance(currentAccount).getCurrentUser() != null && UserConfig.getInstance(currentAccount).getCurrentUser().premium;
+             downloadConnectionsCount = premium ? ConnectionsManager.DownloadConnectionsCount : 2;
+             int byteBudget = (premium ? 16 : 2) * 1024 * 1024;
++            // VipMod fix: for non-premium keep the stock 128KB chunk so the 2MB budget yields
++            // 16 parallel small requests (continuous pipeline) instead of 2 huge 1MB ones
++            // (which caused the burst/stall cycle: ~1s stall then a 50-64Mbps burst).
++            if (!premium) {
++                currentDownloadChunkSize = 1024 * 128;
++            }
+             currentMaxDownloadRequests = byteBudget / currentDownloadChunkSize;
+         }
+     }
 diff --git a/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java b/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
 index 9c6702cb..1c139d7e 100644
 --- a/TMessagesProj/src/main/java/org/telegram/messenger/FileUploadOperation.java
